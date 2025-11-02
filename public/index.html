@@ -9,6 +9,10 @@
 </head>
 <body>
 
+<!-- 🌫️ Анимированный фон -->
+<div class="smoke-layer"></div>
+<div class="smoke-layer second"></div>
+
 <!-- Вступительный экран -->
 <div id="welcome">
   <h1>Добро пожаловать<br>в мир кальянной миксологии</h1>
@@ -42,6 +46,15 @@ document.addEventListener("DOMContentLoaded", ()=>{
       ReactDOM.createRoot(r).render(React.createElement(App));
     },800);
   };
+
+  // 💨 Реакция дыма на клик по экрану
+  document.body.addEventListener('click', () => {
+    document.querySelectorAll('.smoke-layer').forEach(el => {
+      el.classList.remove('pulse-smoke');
+      void el.offsetWidth; // сброс анимации
+      el.classList.add('pulse-smoke');
+    });
+  });
 });
 </script>
 </body>
