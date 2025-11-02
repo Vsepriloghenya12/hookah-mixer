@@ -1,7 +1,7 @@
 {
-  "name": "hookah-miniapp",
+  "name": "hookah-mixer-app",
   "version": "1.0.0",
-  "description": "Telegram Mini App для кальянной — сбор миксов, библиотека вкусов, админка",
+  "description": "Telegram Mini App для гостей кальянной — создание и сохранение миксов.",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -9,19 +9,22 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "body-parser": "^1.20.3",
-    "cors": "^2.8.5",
-    "express": "^4.21.1"
+    "express": "^4.19.2"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
-    "hookah",
     "telegram",
     "miniapp",
+    "hookah",
+    "mixes",
     "express",
-    "react"
+    "nodejs"
   ],
+  "author": "Hookah Team",
   "license": "MIT"
 }
