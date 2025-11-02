@@ -295,14 +295,16 @@ function App() {
       {/* ADMIN */}
       {IS_ADMIN && tab === 'admin' && (
         <>
-          {/* бренды и вкусы остаются прежними */}
+          {/* --- бренды и вкусы остаются прежними --- */}
 
           <div className="card">
             <div className="hd">
               <h3>📦 Резервное копирование</h3>
-              <p className="desc">Сохраните данные миксов и вкусов на свой компьютер</p>
+              <p className="desc">Сохраняйте и восстанавливайте данные миксов и вкусов</p>
             </div>
+
             <div className="bd grid-2">
+              {/* Скачать */}
               <button className="btn accent" onClick={async () => {
                 const res = await fetch("/api/library");
                 const data = await res.json();
@@ -311,7 +313,7 @@ function App() {
                 a.href = URL.createObjectURL(blob);
                 a.download = "library_backup.json";
                 a.click();
-              }}>Скачать библиотеку</button>
+              }}>⬇️ Скачать библиотеку</button>
 
               <button className="btn accent" onClick={async () => {
                 const res = await fetch("/api/mixes");
@@ -321,7 +323,51 @@ function App() {
                 a.href = URL.createObjectURL(blob);
                 a.download = "mixes_backup.json";
                 a.click();
-              }}>Скачать миксы</button>
+              }}>⬇️ Скачать миксы</button>
+
+              {/* Загрузить */}
+              <button className="btn" onClick={() => document.getElementById("uploadLibrary").click()}>⬆️ Загрузить библиотеку</button>
+              <input type="file" id="uploadLibrary" accept=".json" style={{ display: "none" }} onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const text = await file.text();
+                try {
+                  const data = JSON.parse(text);
+                  await fetch("/api/library", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "x-admin-id": CURRENT_USER_ID || ""
+                    },
+                    body: JSON.stringify(data)
+                  });
+                  alert("✅ Библиотека успешно восстановлена");
+                  fetch("/api/library").then(r => r.json()).then(setBrands);
+                } catch {
+                  alert("⚠️ Ошибка при загрузке файла");
+                }
+              }} />
+
+              <button className="btn" onClick={() => document.getElementById("uploadMixes").click()}>⬆️ Загрузить миксы</button>
+              <input type="file" id="uploadMixes" accept=".json" style={{ display: "none" }} onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const text = await file.text();
+                try {
+                  const data = JSON.parse(text);
+                  for (const mix of data) {
+                    await fetch("/api/mixes", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(mix)
+                    });
+                  }
+                  alert("✅ Миксы успешно восстановлены");
+                  fetch("/api/mixes").then(r => r.json()).then(setMixes);
+                } catch {
+                  alert("⚠️ Ошибка при загрузке файла");
+                }
+              }} />
             </div>
           </div>
         </>
