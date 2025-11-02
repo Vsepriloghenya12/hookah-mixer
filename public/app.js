@@ -83,7 +83,19 @@ function App() {
   const total = parts.reduce((a, b) => a + b.percent, 0);
   const avg = parts.length && total > 0 ? Math.round(parts.reduce((a, p) => a + p.percent * p.strength, 0) / total) : 0;
   const remaining = Math.max(0, 100 - total);
-  const finalTaste = [...new Set(parts.map(p => (p.taste || "").trim()).filter(Boolean))].join(", ") || "—";
+
+  // 🧮 определяем доминирующий вкус
+  let tasteTotals = {};
+  for (const p of parts) {
+    if (!p.taste) continue;
+    const t = p.taste.trim().toLowerCase();
+    tasteTotals[t] = (tasteTotals[t] || 0) + p.percent;
+  }
+  let finalTaste = "—";
+  if (Object.keys(tasteTotals).length) {
+    const [mainTaste] = Object.entries(tasteTotals).sort((a, b) => b[1] - a[1])[0];
+    finalTaste = mainTaste;
+  }
 
   const addFlavor = (brandId, fl) => {
     if (remaining <= 0) return;
@@ -164,7 +176,7 @@ function App() {
     setBanned(list); localStorage.setItem("bannedWords", JSON.stringify(list));
   };
 
-  const tasteCategories = Array.from(new Set(mixes.flatMap(m => m.flavors.map(f => (f.taste || "").trim().toLowerCase())).filter(Boolean)));
+  const tasteCategories = Array.from(new Set(mixes.map(m => (m.finalTaste || "").toLowerCase()).filter(Boolean)));
   const [pref, setPref] = useState("all");
   const [strength, setStrength] = useState(5);
   const filteredMixes = mixes
@@ -210,9 +222,7 @@ function App() {
                   </div>
                   <div className="tiny">Крепость: <b>{m.avgStrength}</b></div>
                   <div className="row" style={{ flexWrap: "wrap", gap: "6px", margin: "6px 0" }}>
-                    {(m.finalTaste || "").split(",").map(t => (
-                      <span key={t} className="badge" style={{ background: tasteColor(t), color: "#000", border: "none" }}>{t}</span>
-                    ))}
+                    <span className="badge" style={{ background: tasteColor(m.finalTaste), color: "#000", border: "none" }}>{m.finalTaste}</span>
                   </div>
                   <div className="tiny muted">Состав: {m.flavors.map(p => `${p.name} ${p.percent}%`).join(' + ')}</div>
                 </div>
@@ -272,9 +282,9 @@ function App() {
                 Итого: {total}% (осталось {100 - total}%) • Крепость {avg} • Вкус: {finalTaste}
               </div>
               <div className="row" style={{ flexWrap: "wrap", gap: "6px" }}>
-                {finalTaste.split(",").map(t => (
-                  <span key={t} className="badge" style={{ background: tasteColor(t), color: "#000", border: "none" }}>{t}</span>
-                ))}
+                {finalTaste !== "—" && (
+                  <span className="badge" style={{ background: tasteColor(finalTaste), color: "#000", border: "none" }}>{finalTaste}</span>
+                )}
               </div>
               <button className={"btn " + (total === 100 ? 'accent' : '')} onClick={saveMix} disabled={total !== 100}>Сохранить</button>
             </div>
