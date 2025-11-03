@@ -135,7 +135,7 @@ function App() {
     .filter(m => pref === "all" || (m.finalTaste || "").toLowerCase().includes(pref))
     .filter(m => Math.abs((m.avgStrength || 0) - strength) <= 1);
 
-  // === ADMIN данные ===
+  // === ADMIN ===
   const [brandName, setBrandName] = useState("");
   const [flavorName, setFlavorName] = useState("");
   const [flavorTaste, setFlavorTaste] = useState("");
@@ -148,8 +148,44 @@ function App() {
       body: JSON.stringify(lib)
     });
   };
+  const addBrand = () => {
+    const name = brandName.trim();
+    if (!name) return;
+    const id = name.toLowerCase().replace(/\s+/g, "-");
+    const newLib = [...brands, { id, name, hidden: false, flavors: [] }];
+    setBrands(newLib); saveLibrary(newLib); setBrandName("");
+  };
+  const addFlavorAdmin = () => {
+    const b = brands.find(x => x.id === brandForFlavor);
+    if (!b) return;
+    const name = flavorName.trim();
+    if (!name) return;
+    const fl = { id: name.toLowerCase().replace(/\s+/g, "-"), name, strength: flavorStrength, taste: flavorTaste, hidden: false };
+    const newLib = brands.map(x => x.id === b.id ? { ...x, flavors: [...x.flavors, fl] } : x);
+    setBrands(newLib); saveLibrary(newLib); setFlavorName(""); setFlavorTaste("");
+  };
+  const toggleHidden = (bid, fid) => {
+    const newLib = brands.map(b => {
+      if (b.id !== bid) return b;
+      if (!fid) return { ...b, hidden: !b.hidden };
+      return { ...b, flavors: b.flavors.map(f => f.id === fid ? { ...f, hidden: !f.hidden } : f) };
+    });
+    setBrands(newLib); saveLibrary(newLib);
+  };
+  const delBrand = id => { const newLib = brands.filter(b => b.id !== id); setBrands(newLib); saveLibrary(newLib); };
 
-  // === UI ===
+  const [banInput, setBanInput] = useState("");
+  const addBan = () => {
+    const w = (banInput || "").trim();
+    if (!w) return;
+    const list = [...new Set([...(banned || []), w])];
+    setBanned(list); localStorage.setItem("bannedWords", JSON.stringify(list)); setBanInput("");
+  };
+  const delBan = (word) => {
+    const list = (banned || []).filter(x => String(x) !== String(word));
+    setBanned(list); localStorage.setItem("bannedWords", JSON.stringify(list));
+  };
+
   return (
     <div className="container">
       <header className="title">Кальянный Миксер</header>
@@ -255,7 +291,131 @@ function App() {
       )}
 
       {/* ADMIN */}
-      {/* оставляем админку как в последней версии */}
+      {IS_ADMIN && tab === 'admin' && (
+        <>
+          {/* бренды */}
+          <div className="card">
+            <div className="hd"><h3>Бренды</h3><p className="desc">Добавление / скрытие / удаление</p></div>
+            <div className="bd">
+              <div className="row">
+                <input className="input" placeholder="Новый бренд" value={brandName} onChange={e => setBrandName(e.target.value)} />
+                <button className="btn" onClick={addBrand}>Добавить</button>
+              </div>
+              <div className="sep"></div>
+              <div className="grid-2">
+                {brands.map(b => (
+                  <div key={b.id} className="mix-card">
+                    <div className="row between">
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{b.name}</div>
+                        <div className="tiny muted">вкусов: {b.flavors.length}</div>
+                        {b.hidden ? <div className="badge hidden">скрыт</div> : <div className="badge ok">доступен</div>}
+                      </div>
+                      <div className="grid">
+                        <button className="btn small ghost" onClick={() => toggleHidden(b.id)}>{b.hidden ? "показать" : "скрыть"}</button>
+                        <button className="btn small danger" onClick={() => delBrand(b.id)}>удалить</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* вкусы */}
+          <div className="card">
+            <div className="hd"><h3>Вкусы</h3><p className="desc">Добавить вкус к бренду</p></div>
+            <div className="bd grid">
+              <select className="input" value={brandForFlavor} onChange={e => setBrandForFlavor(e.target.value)}>
+                <option value="">Выбери бренд</option>
+                {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+              <input className="input" placeholder="Название вкуса" value={flavorName} onChange={e => setFlavorName(e.target.value)} />
+              <input className="input" placeholder="Описание вкуса" value={flavorTaste} onChange={e => setFlavorTaste(e.target.value)} />
+              <label>Крепость: {flavorStrength}</label>
+              <input type="range" min="1" max="10" value={flavorStrength} onChange={e => setFlavorStrength(+e.target.value)} />
+              <button className="btn accent" onClick={addFlavorAdmin}>Добавить вкус</button>
+            </div>
+          </div>
+
+          {/* запрещённые слова */}
+          <div className="card">
+            <div className="hd"><h3>Запрещённые слова</h3><p className="desc">Миксы с такими словами не сохранятся</p></div>
+            <div className="bd">
+              <div className="row">
+                <input className="input" placeholder="Добавить слово" value={banInput} onChange={e => setBanInput(e.target.value)} />
+                <button className="btn" onClick={addBan}>Добавить</button>
+              </div>
+              <div className="sep"></div>
+              {(banned || []).map(w => (
+                <div key={w} className="row between mix-card">
+                  <div>{w}</div>
+                  <button className="btn small danger" onClick={() => delBan(w)}>удалить</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* резервное копирование */}
+          <div className="card">
+            <div className="hd"><h3>📦 Резервное копирование</h3><p className="desc">Сохранить / восстановить библиотеку и миксы</p></div>
+            <div className="bd grid-2">
+              <button className="btn accent" onClick={async () => {
+                const res = await fetch("/api/library");
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "library_backup.json";
+                a.click();
+              }}>⬇️ Скачать библиотеку</button>
+              <button className="btn accent" onClick={async () => {
+                const res = await fetch("/api/mixes");
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "mixes_backup.json";
+                a.click();
+              }}>⬇️ Скачать миксы</button>
+              <button className="btn" onClick={() => document.getElementById("uploadLibrary").click()}>⬆️ Загрузить библиотеку</button>
+              <input type="file" id="uploadLibrary" accept=".json" style={{ display: "none" }} onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const text = await file.text();
+                try {
+                  const data = JSON.parse(text);
+                  await fetch("/api/library", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "x-admin-id": CURRENT_USER_ID || "" },
+                    body: JSON.stringify(data)
+                  });
+                  alert("✅ Библиотека восстановлена");
+                  fetch("/api/library").then(r => r.json()).then(setBrands);
+                } catch { alert("⚠️ Ошибка загрузки файла"); }
+              }} />
+              <button className="btn" onClick={() => document.getElementById("uploadMixes").click()}>⬆️ Загрузить миксы</button>
+              <input type="file" id="uploadMixes" accept=".json" style={{ display: "none" }} onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const text = await file.text();
+                try {
+                  const data = JSON.parse(text);
+                  for (const mix of data) {
+                    await fetch("/api/mixes", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(mix)
+                    });
+                  }
+                  alert("✅ Миксы восстановлены");
+                  fetch("/api/mixes").then(r => r.json()).then(setMixes);
+                } catch { alert("⚠️ Ошибка загрузки миксов"); }
+              }} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
