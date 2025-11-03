@@ -1,213 +1,110 @@
-/* === Общие стили === */
-body {
+* {
   margin: 0;
   padding: 0;
-  font-family: 'Nunito', sans-serif;
-  background-color: #0e1216;
-  color: #eaeaea;
+  box-sizing: border-box;
+  font-family: "Nunito", sans-serif;
+}
+
+body {
+  background-color: #111;
+  color: #fff;
   overflow-x: hidden;
-  position: relative;
-  min-height: 100vh;
 }
 
-/* Дымчатый фон */
-.smoke-layer {
-  position: absolute;
-  top: -25%;
-  left: -25%;
-  width: 150%;
-  height: 150%;
-  background: radial-gradient(circle at 30% 30%, #fff, transparent 60%);
-  opacity: 0.06;
-  animation: smoke 20s ease-in-out infinite;
-  z-index: 0;
-}
-
-.smoke-layer:nth-child(2) {
-  animation-delay: 5s;
-  background: radial-gradient(circle at 70% 60%, #fff, transparent 60%);
-}
-
-/* Анимация дыма */
-@keyframes smoke {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(20px, -10px) scale(1.1); }
-  100% { transform: translate(0, 0) scale(1); }
-}
-
-.pulse-smoke {
-  animation: pulseSmoke 1.2s ease-in-out;
-}
-
-@keyframes pulseSmoke {
-  0% { transform: scale(1); opacity: 0.1; }
-  50% { transform: scale(1.05); opacity: 0.2; }
-  100% { transform: scale(1); opacity: 0.1; }
-}
-
-/* === Основная структура === */
 #app {
-  position: relative;
-  z-index: 5;
   padding: 20px;
+  max-width: 700px;
+  margin: 0 auto;
 }
 
-/* === Вкладки === */
+/* Вкладки */
 .tabs {
   display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 24px;
-  z-index: 10;
+  justify-content: space-around;
+  background-color: #1b1b1b;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 20px;
 }
 
 .tab-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  border-radius: 9999px;
-  background: rgba(31, 37, 43, 0.9);
-  color: #eaeaea;
-  border: 1px solid #2e353c;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(8px);
-}
-.tab-btn:hover {
-  background: #2a3036;
-  color: #c2955d;
-  box-shadow: 0 0 10px #c2955d55;
-}
-
-/* === Карточки === */
-.card {
-  background: rgba(26, 31, 36, 0.8);
-  border: 1px solid #242a30;
-  border-radius: 20px;
-  padding: 16px;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
-  transition: all 0.3s ease;
-  backdrop-filter: blur(6px);
-}
-.card:hover {
-  transform: scale(1.02);
-  box-shadow: 0 0 20px #c2955d55;
-}
-
-/* === Кнопки === */
-button, .btn {
+  background-color: #222;
   border: none;
-  outline: none;
-  background: linear-gradient(135deg, #1f252b, #171c21);
-  color: #eaeaea;
-  border-radius: 10px;
-  padding: 10px 16px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-button:hover, .btn:hover {
-  background: #2a3036;
-  color: #c2955d;
-  box-shadow: 0 0 10px #c2955d55;
-}
-
-/* === Формы === */
-input, select {
-  background: #1a1f24;
-  border: 1px solid #2e353c;
-  color: #eaeaea;
-  padding: 8px;
+  color: #fff;
+  padding: 10px 20px;
   border-radius: 8px;
-  width: 100%;
-  box-sizing: border-box;
-  transition: all 0.3s ease;
-}
-input:focus, select:focus {
-  border-color: #c2955d;
-  outline: none;
-}
-
-/* === Вкусные бейджи === */
-.badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #000;
-}
-.badge-sweet { background: #f5a623; }
-.badge-fresh { background: #4fc3f7; }
-.badge-dessert { background: #d18df0; }
-.badge-sour { background: #f56d6d; }
-.badge-spicy { background: #ff8c00; }
-.badge-tea { background: #c1b684; }
-.badge-alco { background: #a970ff; }
-.badge-herb { background: #6ab04c; }
-
-/* === Заголовки === */
-h1, h2, h3 {
-  color: #c2955d;
-  text-shadow: 0 0 6px #c2955d44;
-}
-
-/* === Footer === */
-footer {
-  text-align: center;
-  font-size: 12px;
-  color: #7c7c7c;
-  margin-top: 40px;
-  opacity: 0.8;
-}
-
-/* === Лайк / реакция === */
-.like-btn {
-  color: #c2955d;
   cursor: pointer;
-  transition: all 0.3s ease;
-}
-.like-btn:hover {
-  color: #f5d29c;
-  transform: scale(1.15);
+  transition: 0.3s;
 }
 
-/* === Layout === */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
+.tab-btn:hover {
+  background-color: #333;
 }
 
-/* === Приветственная страница === */
+.active-tab {
+  background-color: #555;
+}
+
+/* Карточки */
+.card {
+  background-color: #1c1c1c;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Кнопки */
+button {
+  background-color: #444;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+button:hover {
+  background-color: #666;
+}
+
+/* Формы */
+input, select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background-color: #222;
+  color: #fff;
+}
+
+/* Приветственная страница */
 #welcome {
-  position: relative;
-  z-index: 10;
-  background: linear-gradient(180deg, #101418, #0e1216);
   height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  color: #eaeaea;
   text-align: center;
 }
+
 #welcome h1 {
-  color: #c2955d;
   font-size: 28px;
+  margin-bottom: 12px;
 }
+
 #welcome button {
-  margin-top: 24px;
+  background-color: #333;
+  border: none;
+  color: #fff;
   padding: 12px 20px;
-  border-radius: 12px;
-  background: #1f252b;
-  border: 1px solid #2e353c;
-  color: #eaeaea;
-  transition: 0.3s ease;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.3s;
 }
+
 #welcome button:hover {
-  color: #c2955d;
-  box-shadow: 0 0 10px #c2955d55;
+  background-color: #555;
 }
