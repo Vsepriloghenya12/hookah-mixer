@@ -1,9 +1,7 @@
-/* === 🌑 Общие стили === */
-* {
-  box-sizing: border-box;
-  transition: all 0.25s ease;
+/* === 🌑 База и типографика === */
+html, body {
+  height: 100%;
 }
-
 body {
   margin: 0;
   padding: 0;
@@ -14,14 +12,29 @@ body {
   position: relative;
 }
 
-/* === 🌫️ Анимированный дым === */
+/* Лучше не анимировать вообще все свойства у всех элементов */
+* {
+  box-sizing: border-box;
+}
+
+/* Утилита для плавных появлений (вступительный экран и т.п.) */
+.hidden {
+  opacity: 0 !important;
+  filter: blur(2px);
+  transition: opacity .4s ease, filter .4s ease;
+}
+
+/* === 🌫️ ДЫМ: безопасное позиционирование === */
+/* Контейнер дыма не нужен, делаем слои фиксированными к вьюпорту */
 .smoke-layer {
-  position: absolute;
-  width: 150%;
-  height: 150%;
-  opacity: 0.1;
-  pointer-events: none;
-  z-index: 0;
+  position: fixed;           /* фиксируем к окну, а не к потоку документа */
+  top: -10vh;
+  left: -10vw;
+  width: 120vw;              /* чуть больше экрана, чтобы при анимации не оголялись края */
+  height: 120vh;
+  opacity: 0.10;
+  pointer-events: none;      /* не перехватывает клики */
+  z-index: 0;                /* всегда ПОЗАДИ контента */
   background: radial-gradient(circle at 30% 30%, #fff, transparent 60%);
   animation: smoke 20s ease-in-out infinite;
 }
@@ -32,56 +45,49 @@ body {
 }
 
 @keyframes smoke {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  50% {
-    transform: translate(20px, -10px) scale(1.1);
-  }
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(20px, -10px) scale(1.08); }
+  100% { transform: translate(0, 0) scale(1); }
 }
 
+/* Пульс при кликах/лайках */
 @keyframes pulseSmoke {
-  0% {
-    transform: scale(1);
-    opacity: 0.1;
-  }
-  50% {
-    transform: scale(1.05);
-    opacity: 0.2;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0.1;
-  }
+  0%   { transform: scale(1);   opacity: 0.10; }
+  50%  { transform: scale(1.05);opacity: 0.18; }
+  100% { transform: scale(1);   opacity: 0.10; }
 }
-
 .pulse-smoke {
   animation: pulseSmoke 1.2s ease-in-out;
 }
 
-/* === 🌟 Шапка и навигация === */
-header {
+/* === Слой контента поверх дыма === */
+.app-wrapper {
+  position: relative;   /* создаём локальный стек */
+  min-height: 100vh;
+  overflow: hidden;
+}
+.app-content {
   position: relative;
-  z-index: 5;
+  z-index: 10;          /* контент всегда поверх дыма */
+}
+
+/* === 🌟 Заголовок и навигация === */
+header {
   text-align: center;
   font-size: 1.8rem;
   font-weight: 700;
   color: #c2955d;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
+  margin: 1rem 0;
   text-shadow: 0 0 6px #000;
 }
 
+/* Вкладки/кнопки в шапке */
 .navbar {
   display: flex;
   justify-content: center;
   gap: 0.8rem;
   margin-bottom: 1.5rem;
 }
-
 .navbar button {
   background: rgba(31, 37, 43, 0.9);
   border: 1px solid #2e353c;
@@ -90,12 +96,11 @@ header {
   font-size: 0.9rem;
   padding: 0.5rem 1rem;
   backdrop-filter: blur(4px);
-  transition: all 0.25s ease;
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  transition: color .25s ease, background-color .25s ease, box-shadow .25s ease, transform .25s ease;
 }
-
 .navbar button:hover {
   color: #c2955d;
   background: #2a3036;
@@ -105,89 +110,82 @@ header {
 
 /* === 🧱 Карточки миксов === */
 .mix-card {
-  background: rgba(26, 31, 36, 0.8);
+  background: rgba(26, 31, 36, 0.85);
   border: 1px solid #242a30;
   border-radius: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   backdrop-filter: blur(6px);
   padding: 1rem;
-  transition: all 0.25s ease;
   position: relative;
   z-index: 3;
+  transition: box-shadow .25s ease, transform .25s ease;
 }
-
 .mix-card:hover {
-  transform: scale(1.02);
+  transform: translateY(-2px);
   box-shadow: 0 0 20px #c2955d55;
 }
-
 .mix-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.6rem;
+  margin-bottom: .6rem;
 }
-
 .mix-title {
   font-weight: 600;
   font-size: 1.1rem;
 }
-
 .mix-author {
-  font-size: 0.75rem;
+  font-size: .75rem;
   color: #999;
 }
-
 .mix-like {
   color: #c2955d;
-  font-size: 0.9rem;
+  font-size: .9rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: color .25s ease, transform .25s ease, text-shadow .25s ease;
 }
-
 .mix-like:hover {
   color: #f5d29c;
-  transform: scale(1.2);
+  transform: scale(1.15);
+  text-shadow: 0 0 8px rgba(245,210,156,.5);
 }
 
 /* === 🏷️ Метки вкусов === */
 .mix-taste {
   display: inline-block;
-  padding: 0.25rem 0.5rem;
+  padding: .25rem .5rem;
   border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: .75rem;
+  font-weight: 700;
   color: #000;
 }
-
 .mix-details {
-  font-size: 0.75rem;
+  font-size: .75rem;
   color: #aaa;
-  margin-top: 0.3rem;
+  margin-top: .3rem;
 }
 
-/* === ⚙️ Элементы интерфейса === */
+/* === ⚙️ Кнопки/элементы управления === */
 .btn {
   background: linear-gradient(90deg, #c2955d, #e0b97c);
   color: #000;
   border: none;
   border-radius: 1.5rem;
-  padding: 0.6rem 1.2rem;
-  font-weight: 600;
+  padding: .6rem 1.2rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: box-shadow .25s ease, transform .25s ease, filter .25s ease;
 }
-
 .btn:hover {
   box-shadow: 0 0 10px #c2955d88;
-  transform: scale(1.03);
+  transform: translateY(-1px);
 }
-
 .btn:active {
   transform: scale(0.98);
+  filter: brightness(.98);
 }
 
-/* === 🧩 Прогрессбар (конструктор) === */
+/* === 🧩 Прогресс-бар (конструктор) === */
 .progress {
   height: 6px;
   border-radius: 3px;
@@ -195,46 +193,29 @@ header {
   overflow: hidden;
   margin: 1rem 0;
 }
-
 .progress .bar {
   height: 100%;
   background: linear-gradient(90deg, #c2955d, #e0b97c);
-  transition: width 0.4s ease;
+  transition: width .4s ease;
 }
 
-/* === 📦 Сетки === */
+/* === 📦 Сетки и контейнеры === */
 .container {
   max-width: 800px;
   margin: 0 auto;
   padding: 0 1rem;
 }
-
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1rem;
 }
 
-/* === 💨 Реакция на клик === */
-body:active .smoke-layer {
-  animation: pulseSmoke 1.2s ease-in-out;
-}
-
 /* === 💬 Подвал === */
 footer {
   text-align: center;
-  font-size: 0.75rem;
+  font-size: .75rem;
   color: #777;
-  opacity: 0.7;
+  opacity: .7;
   margin-top: 2rem;
-}
-.app-wrapper {
-  position: relative;
-  min-height: 100vh;
-  overflow: hidden;
-}
-
-.app-content {
-  position: relative;
-  z-index: 10;
 }
