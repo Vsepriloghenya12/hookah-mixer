@@ -47,7 +47,7 @@ if (!fs.existsSync(libraryFile)) writeJSON(libraryFile, []);
 if (!fs.existsSync(mixesFile)) writeJSON(mixesFile, []);
 
 // 🧾 Middleware
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 // 👮 Проверка прав администратора
@@ -109,6 +109,19 @@ app.delete("/api/mixes/:id", (req, res) => {
 
   writeJSON(mixesFile, updated);
   res.json({ success: true });
+});
+
+// 💾 Прямая загрузка файлов (бэкапы)
+app.get("/api/download/library", (req, res) => {
+  res.setHeader("Content-Disposition", "attachment; filename=library_backup.json");
+  res.setHeader("Content-Type", "application/json");
+  res.send(readJSON(libraryFile));
+});
+
+app.get("/api/download/mixes", (req, res) => {
+  res.setHeader("Content-Disposition", "attachment; filename=mixes_backup.json");
+  res.setHeader("Content-Type", "application/json");
+  res.send(readJSON(mixesFile));
 });
 
 // 🌐 Отдача фронтенда
