@@ -134,3 +134,19 @@ app.listen(PORT, () => {
   console.log(`✅ Server started on port ${PORT}`);
   console.log(`📁 Data directory: ${DATA_DIR}`);
 });
+// Отправить сообщение с кнопкой "Открыть Baby Sleep+" в канал
+bot.command('post', async (ctx) => {
+  try {
+    await ctx.telegram.sendMessage('@твой_канал', '👶 Baby Sleep+', {
+      reply_markup: {
+        inline_keyboard: [[
+          { text: '🚀 Открыть Baby Sleep+', url: 'https://t.me/barTooman_bot?start=from_channel' }
+        ]]
+      }
+    });
+    await ctx.reply('✅ Сообщение отправлено в канал');
+  } catch (err) {
+    console.error(err);
+    await ctx.reply('❌ Ошибка при отправке сообщения');
+  }
+});
