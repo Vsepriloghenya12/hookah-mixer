@@ -36,7 +36,7 @@ function App() {
   const [mixes, setMixes] = useState([]);
   const [likes, setLikes] = useState({});
   const [banned, setBanned] = useState([]);
-  const [collapsed, setCollapsed] = useState({}); // свернутые бренды
+  const [collapsed, setCollapsed] = useState({});
 
   useEffect(() => {
     fetch("/api/library").then(r => r.json()).then(setBrands).catch(console.error);
@@ -101,10 +101,8 @@ function App() {
     saveLibrary(newLib);
   };
 
-  const [selected, setSelected] = useState(null);
   const [parts, setParts] = useState([]);
   const [search, setSearch] = useState("");
-  const selectedBrand = brands.find(b => b.id === selected);
   const total = parts.reduce((a, b) => a + b.percent, 0);
   const avg = parts.length && total > 0 ? Math.round(parts.reduce((a, p) => a + p.percent * p.strength, 0) / total) : 0;
   const remaining = Math.max(0, 100 - total);
@@ -267,38 +265,33 @@ function App() {
       {tab === "builder" && (
         <>
           <div className="card">
-            <div className="hd"><h3>Бренды</h3></div>
-            <div className="bd grid-2" style={{ alignItems: "flex-start" }}>
-              {brands.filter(b => !b.hidden).map(b =>
-                <button key={b.id} className={"brand-btn" + (selected === b.id ? ' active' : '')} onClick={() => setSelected(b.id)}>{b.name}</button>
-              )}
-            </div>
-          </div>
-
-          {selectedBrand && (
-            <div className="card">
-              <div className="hd"><h3>{selectedBrand.name}</h3></div>
-              <div className="bd grid">
-                <input className="input" placeholder="Поиск по вкусу" value={search} onChange={e => setSearch(e.target.value)} />
-                {selectedBrand.flavors
-                  .filter(f => !f.hidden)
-                  .filter(f => {
-                    const q = search.toLowerCase();
-                    return (
-                      (f.name || "").toLowerCase().includes(q) ||
-                      (f.type || "").toLowerCase().includes(q) ||
-                      (f.taste || "").toLowerCase().includes(q)
-                    );
-                  })
-                  .map(f => (
-                    <div key={f.id} className="flavor-item">
-                      <div><b>{f.name}</b> <div className="tiny muted">{f.type} — {f.taste}</div></div>
-                      <button className="btn" onClick={() => addFlavor(selectedBrand.id, f)}>+ в микс</button>
-                    </div>
-                  ))}
+            <div className="hd"><h3>Поиск вкуса по всем брендам</h3></div>
+            <div className="bd">
+              <input className="input" placeholder="Введите вкус (например, малина)" value={search} onChange={e => setSearch(e.target.value)} />
+              <div className="sep"></div>
+              <div className="grid">
+                {brands.flatMap(b =>
+                  b.hidden ? [] :
+                    b.flavors
+                      .filter(f => !f.hidden)
+                      .filter(f => {
+                        const q = search.toLowerCase();
+                        return (
+                          (f.name || "").toLowerCase().includes(q) ||
+                          (f.type || "").toLowerCase().includes(q) ||
+                          (f.taste || "").toLowerCase().includes(q)
+                        );
+                      })
+                      .map(f => (
+                        <div key={`${b.id}-${f.id}`} className="flavor-item">
+                          <div><b>{b.name}</b> — {f.name}<div className="tiny muted">{f.type} — {f.taste}</div></div>
+                          <button className="btn" onClick={() => addFlavor(b.id, f)}>+ в микс</button>
+                        </div>
+                      ))
+                )}
               </div>
             </div>
-          )}
+          </div>
 
           <div className="card">
             <div className="hd"><h3>Ваш микс</h3></div>
@@ -389,6 +382,79 @@ function App() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* === BACKUP === */}
+          <div className="card">
+            <div className="hd">
+              <h3>📦 Резервное копирование</h3>
+              <p className="desc">Сохраняйте и восстанавливайте данные миксов и вкусов</p>
+            </div>
+            <div className="bd grid-2">
+              <button className="btn accent" onClick={async () => {
+                const res = await fetch("/api/library");
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "library_backup.json";
+                a.click();
+              }}>⬇️ Скачать библиотеку</button>
+
+              <button className="btn accent" onClick={async () => {
+                const res = await fetch("/api/mixes");
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "mixes_backup.json";
+                a.click();
+              }}>⬇️ Скачать миксы</button>
+
+              <button className="btn" onClick={() => document.getElementById("uploadLibrary").click()}>⬆️ Загрузить библиотеку</button>
+              <input type="file" id="uploadLibrary" accept=".json" style={{ display: "none" }}
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const text = await file.text();
+                  try {
+                    const data = JSON.parse(text);
+                    await fetch("/api/library", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", "x-admin-id": CURRENT_USER_ID || "" },
+                      body: JSON.stringify(data)
+                    });
+                    alert("✅ Библиотека успешно восстановлена");
+                    fetch("/api/library").then(r => r.json()).then(setBrands);
+                  } catch {
+                    alert("⚠️ Ошибка при загрузке файла");
+                  }
+                }}
+              />
+
+              <button className="btn" onClick={() => document.getElementById("uploadMixes").click()}>⬆️ Загрузить миксы</button>
+              <input type="file" id="uploadMixes" accept=".json" style={{ display: "none" }}
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const text = await file.text();
+                  try {
+                    const data = JSON.parse(text);
+                    for (const mix of data) {
+                      await fetch("/api/mixes", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(mix)
+                      });
+                    }
+                    alert("✅ Миксы успешно восстановлены");
+                    fetch("/api/mixes").then(r => r.json()).then(setMixes);
+                  } catch {
+                    alert("⚠️ Ошибка при загрузке файла");
+                  }
+                }}
+              />
             </div>
           </div>
         </div>
