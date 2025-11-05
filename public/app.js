@@ -36,6 +36,7 @@ function App() {
   const [mixes, setMixes] = useState([]);
   const [likes, setLikes] = useState({});
   const [banned, setBanned] = useState([]);
+  const [collapsed, setCollapsed] = useState({}); // свернутые бренды
 
   useEffect(() => {
     fetch("/api/library").then(r => r.json()).then(setBrands).catch(console.error);
@@ -75,7 +76,6 @@ function App() {
     }
   };
 
-  // 🔧 скрыть / показать вкус
   const toggleFlavorHidden = (brandId, flavorId) => {
     const newLib = brands.map(b => {
       if (b.id !== brandId) return b;
@@ -88,7 +88,6 @@ function App() {
     saveLibrary(newLib);
   };
 
-  // 🔧 удалить вкус
   const deleteFlavor = (brandId, flavorId) => {
     if (!confirm("Удалить этот вкус?")) return;
     const newLib = brands.map(b => {
@@ -102,7 +101,6 @@ function App() {
     saveLibrary(newLib);
   };
 
-  // === BUILDER ===
   const [selected, setSelected] = useState(null);
   const [parts, setParts] = useState([]);
   const [search, setSearch] = useState("");
@@ -155,7 +153,6 @@ function App() {
     if (j.success) { alert("✅ Микс сохранён"); setParts([]); reloadMixes(); }
   };
 
-  // === ADMIN ===
   const [brandName, setBrandName] = useState("");
   const [flavorName, setFlavorName] = useState("");
   const [flavorTaste, setFlavorTaste] = useState("");
@@ -172,7 +169,9 @@ function App() {
     if (!name) return;
     const id = name.toLowerCase().replace(/\s+/g, "-");
     const newLib = [...brands, { id, name, hidden: false, flavors: [] }];
-    setBrands(newLib); saveLibrary(newLib); setBrandName("");
+    setBrands(newLib);
+    saveLibrary(newLib);
+    setBrandName("");
   };
 
   const addFlavorAdmin = () => {
@@ -189,7 +188,9 @@ function App() {
       hidden: false
     };
     const newLib = brands.map(x => x.id === b.id ? { ...x, flavors: [...x.flavors, fl] } : x);
-    setBrands(newLib); saveLibrary(newLib); setFlavorName(""); setFlavorType(""); setFlavorTaste("");
+    setBrands(newLib);
+    saveLibrary(newLib);
+    setFlavorName(""); setFlavorType(""); setFlavorTaste("");
   };
 
   const toggleHidden = (bid, fid) => {
@@ -198,10 +199,15 @@ function App() {
       if (!fid) return { ...b, hidden: !b.hidden };
       return { ...b, flavors: b.flavors.map(f => f.id === fid ? { ...f, hidden: !f.hidden } : f) };
     });
-    setBrands(newLib); saveLibrary(newLib);
+    setBrands(newLib);
+    saveLibrary(newLib);
   };
 
-  const delBrand = id => { const newLib = brands.filter(b => b.id !== id); setBrands(newLib); saveLibrary(newLib); };
+  const delBrand = id => {
+    const newLib = brands.filter(b => b.id !== id);
+    setBrands(newLib);
+    saveLibrary(newLib);
+  };
 
   const tasteCategories = Array.from(new Set(mixes.map(m => (m.finalTaste || "").toLowerCase()).filter(Boolean)));
   const [pref, setPref] = useState("all");
@@ -219,13 +225,110 @@ function App() {
         {IS_ADMIN && <button className={"tab-btn" + (tab === 'admin' ? ' active' : '')} onClick={() => setTab('admin')}>Админ</button>}
       </div>
 
+      {/* === COMMUNITY === */}
+      {tab === "community" && (
+        <div className="card">
+          <div className="hd"><h3>Рекомендации</h3></div>
+          <div className="bd">
+            <div className="grid-2">
+              <button className={"btn " + (pref === 'all' ? 'accent' : '')} onClick={() => setPref('all')}>Все</button>
+              {tasteCategories.map(t => (
+                <button key={t} className={"btn " + (pref === t ? 'accent' : '')} onClick={() => setPref(t)}>{t}</button>
+              ))}
+            </div>
+            <div className="sep"></div>
+            <div>Крепость: <b>{strength}</b></div>
+            <input type="range" min="1" max="10" value={strength} onChange={e => setStrength(+e.target.value)} />
+            <div className="sep"></div>
+            <div className="grid">
+              {filteredMixes.map(m => (
+                <div key={m.id} className="mix-card">
+                  <div className="row between">
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{m.name}</div>
+                      <div className="tiny muted">от {m.author}</div>
+                    </div>
+                    <div className="row">
+                      <button className={"btn small " + (likes[m.id] ? 'accent' : '')} onClick={() => toggleLike(m.id)}>❤ {m.likes}</button>
+                      {IS_ADMIN && <button className="btn small danger" onClick={() => deleteMix(m.id)}>✕</button>}
+                    </div>
+                  </div>
+                  <div className="tiny">Крепость: <b>{m.avgStrength}</b></div>
+                  <div className="tiny muted">Вкус: {m.finalTaste}</div>
+                  <div className="tiny muted">Состав: {m.flavors.map(p => `${p.name} ${p.percent}%`).join(' + ')}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === BUILDER === */}
+      {tab === "builder" && (
+        <>
+          <div className="card">
+            <div className="hd"><h3>Бренды</h3></div>
+            <div className="bd grid-2" style={{ alignItems: "flex-start" }}>
+              {brands.filter(b => !b.hidden).map(b =>
+                <button key={b.id} className={"brand-btn" + (selected === b.id ? ' active' : '')} onClick={() => setSelected(b.id)}>{b.name}</button>
+              )}
+            </div>
+          </div>
+
+          {selectedBrand && (
+            <div className="card">
+              <div className="hd"><h3>{selectedBrand.name}</h3></div>
+              <div className="bd grid">
+                <input className="input" placeholder="Поиск по вкусу" value={search} onChange={e => setSearch(e.target.value)} />
+                {selectedBrand.flavors
+                  .filter(f => !f.hidden)
+                  .filter(f => {
+                    const q = search.toLowerCase();
+                    return (
+                      (f.name || "").toLowerCase().includes(q) ||
+                      (f.type || "").toLowerCase().includes(q) ||
+                      (f.taste || "").toLowerCase().includes(q)
+                    );
+                  })
+                  .map(f => (
+                    <div key={f.id} className="flavor-item">
+                      <div><b>{f.name}</b> <div className="tiny muted">{f.type} — {f.taste}</div></div>
+                      <button className="btn" onClick={() => addFlavor(selectedBrand.id, f)}>+ в микс</button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          <div className="card">
+            <div className="hd"><h3>Ваш микс</h3></div>
+            <div className="bd grid">
+              {parts.map(p => (
+                <div key={p.key} className="mix-card">
+                  <div className="row between">
+                    <div><b>{p.name}</b><div className="tiny muted">{p.taste}</div></div>
+                    <button className="btn small" onClick={() => removePart(p.key)}>×</button>
+                  </div>
+                  <input type="range" min="0" max="100" step="5" value={p.percent} onChange={e => updatePct(p.key, +e.target.value)} />
+                  <div className="tiny muted">{p.percent}%</div>
+                </div>
+              ))}
+              <div className="tiny muted">
+                Итого: {total}% (осталось {100 - total}%) • Крепость {avg} • Вкус: {finalTaste}
+              </div>
+              <button className={"btn " + (total === 100 ? 'accent' : '')} onClick={saveMix} disabled={total !== 100}>Сохранить</button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* === ADMIN === */}
-      {IS_ADMIN && tab === 'admin' && (
+      {IS_ADMIN && tab === "admin" && (
         <div className="admin-panel">
           <div className="card">
             <div className="hd">
               <h3>Бренды и вкусы</h3>
-              <p className="desc">Добавляйте, скрывайте и удаляйте вкусы</p>
+              <p className="desc">Добавляйте, скрывайте, удаляйте и сворачивайте бренды</p>
             </div>
             <div className="bd">
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -250,110 +353,42 @@ function App() {
 
               <div className="sep"></div>
 
-              <div className="grid-2">
+              <div className="brand-list" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {brands.map(b => (
                   <div key={b.id} className="mix-card">
-                    <div className="row between">
+                    <div className="row between" onClick={() => setCollapsed(c => ({ ...c, [b.id]: !c[b.id] }))} style={{ cursor: "pointer" }}>
                       <div>
                         <div style={{ fontWeight: 600 }}>{b.name}</div>
                         <div className="tiny muted">вкусов: {b.flavors.length}</div>
-                        {b.hidden ? <div className="badge hidden">скрыт</div> : <div className="badge ok">доступен</div>}
                       </div>
-                      <div className="grid">
-                        <button className="btn small ghost" onClick={() => toggleHidden(b.id)}>{b.hidden ? "показать" : "скрыть"}</button>
-                        <button className="btn small danger" onClick={() => delBrand(b.id)}>удалить</button>
+                      <div className="grid" style={{ gap: 4 }}>
+                        <button className="btn small ghost" onClick={(e) => { e.stopPropagation(); toggleHidden(b.id); }}>{b.hidden ? "показать" : "скрыть"}</button>
+                        <button className="btn small danger" onClick={(e) => { e.stopPropagation(); delBrand(b.id); }}>удалить</button>
+                        <span className="tiny">{collapsed[b.id] ? "▼" : "▲"}</span>
                       </div>
                     </div>
-                    <div className="sep"></div>
-                    {(b.flavors || []).map(f => (
-                      <div key={f.id} className="mix-card row between" style={{ marginLeft: 10 }}>
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{f.name}</div>
-                          {f.type && <div className="tiny muted">{f.type}</div>}
-                          {f.taste && <div className="tiny">{f.taste}</div>}
-                          {f.hidden ? <div className="badge hidden">скрыт</div> : <div className="badge ok">доступен</div>}
-                        </div>
-                        <div className="grid">
-                          <button className="btn small ghost" onClick={() => toggleFlavorHidden(b.id, f.id)}>{f.hidden ? "показать" : "скрыть"}</button>
-                          <button className="btn small danger" onClick={() => deleteFlavor(b.id, f.id)}>удалить</button>
-                        </div>
+
+                    {!collapsed[b.id] && (
+                      <div className="flavor-list" style={{ marginTop: 6, marginLeft: 10 }}>
+                        {(b.flavors || []).map(f => (
+                          <div key={f.id} className="mix-card row between" style={{ margin: 3 }}>
+                            <div>
+                              <b>{f.name}</b>
+                              {f.type && <div className="tiny muted">{f.type}</div>}
+                              {f.taste && <div className="tiny">{f.taste}</div>}
+                              {f.hidden ? <div className="badge hidden">скрыт</div> : <div className="badge ok">доступен</div>}
+                            </div>
+                            <div className="grid" style={{ gap: 4 }}>
+                              <button className="btn small ghost" onClick={() => toggleFlavorHidden(b.id, f.id)}>{f.hidden ? "показать" : "скрыть"}</button>
+                              <button className="btn small danger" onClick={() => deleteFlavor(b.id, f.id)}>удалить</button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="hd">
-              <h3>📦 Резервное копирование</h3>
-              <p className="desc">Сохраняйте и восстанавливайте данные миксов и вкусов</p>
-            </div>
-            <div className="bd grid-2">
-              <button className="btn accent" onClick={async () => {
-                const res = await fetch("/api/library");
-                const data = await res.json();
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = "library_backup.json";
-                a.click();
-              }}>⬇️ Скачать библиотеку</button>
-
-              <button className="btn accent" onClick={async () => {
-                const res = await fetch("/api/mixes");
-                const data = await res.json();
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = "mixes_backup.json";
-                a.click();
-              }}>⬇️ Скачать миксы</button>
-
-              <button className="btn" onClick={() => document.getElementById("uploadLibrary").click()}>⬆️ Загрузить библиотеку</button>
-              <input type="file" id="uploadLibrary" accept=".json" style={{ display: "none" }}
-                onChange={async (e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  const text = await file.text();
-                  try {
-                    const data = JSON.parse(text);
-                    await fetch("/api/library", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json", "x-admin-id": CURRENT_USER_ID || "" },
-                      body: JSON.stringify(data)
-                    });
-                    alert("✅ Библиотека успешно восстановлена");
-                    fetch("/api/library").then(r => r.json()).then(setBrands);
-                  } catch {
-                    alert("⚠️ Ошибка при загрузке файла");
-                  }
-                }}
-              />
-
-              <button className="btn" onClick={() => document.getElementById("uploadMixes").click()}>⬆️ Загрузить миксы</button>
-              <input type="file" id="uploadMixes" accept=".json" style={{ display: "none" }}
-                onChange={async (e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  const text = await file.text();
-                  try {
-                    const data = JSON.parse(text);
-                    for (const mix of data) {
-                      await fetch("/api/mixes", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(mix)
-                      });
-                    }
-                    alert("✅ Миксы успешно восстановлены");
-                    fetch("/api/mixes").then(r => r.json()).then(setMixes);
-                  } catch {
-                    alert("⚠️ Ошибка при загрузке файла");
-                  }
-                }}
-              />
             </div>
           </div>
         </div>
