@@ -75,6 +75,33 @@ function App() {
     }
   };
 
+  // 🔧 скрыть / показать вкус
+const toggleFlavorHidden = (brandId, flavorId) => {
+  const newLib = brands.map(b => {
+    if (b.id !== brandId) return b;
+    return { 
+      ...b, 
+      flavors: b.flavors.map(f => f.id === flavorId ? { ...f, hidden: !f.hidden } : f) 
+    };
+  });
+  setBrands(newLib); 
+  saveLibrary(newLib);
+};
+
+// 🔧 удалить вкус
+const deleteFlavor = (brandId, flavorId) => {
+  if (!confirm("Удалить этот вкус?")) return;
+  const newLib = brands.map(b => {
+    if (b.id !== brandId) return b;
+    return { 
+      ...b, 
+      flavors: b.flavors.filter(f => f.id !== flavorId) 
+    };
+  });
+  setBrands(newLib);
+  saveLibrary(newLib);
+};
+
   // === BUILDER ===
   const [selected, setSelected] = useState(null);
   const [parts, setParts] = useState([]);
@@ -131,6 +158,7 @@ function App() {
   const [brandName, setBrandName] = useState("");
   const [flavorName, setFlavorName] = useState("");
   const [flavorTaste, setFlavorTaste] = useState("");
+  const [flavorType, setFlavorType] = useState("");
   const [flavorStrength, setFlavorStrength] = useState(5);
   const [brandForFlavor, setBrandForFlavor] = useState("");
 
@@ -150,9 +178,16 @@ function App() {
     if (!b) return;
     const name = flavorName.trim();
     if (!name) return;
-    const fl = { id: name.toLowerCase().replace(/\s+/g, "-"), name, strength: flavorStrength, taste: flavorTaste, hidden: false };
+    const fl = { 
+  id: name.toLowerCase().replace(/\s+/g, "-"), 
+  name, 
+  type: flavorType,               // 🍓 новое поле
+  strength: flavorStrength, 
+  taste: flavorTaste, 
+  hidden: false 
+};
     const newLib = brands.map(x => x.id === b.id ? { ...x, flavors: [...x.flavors, fl] } : x);
-    setBrands(newLib); saveLibrary(newLib); setFlavorName(""); setFlavorTaste("");
+    setBrands(newLib); saveLibrary(newLib); setFlavorName(""); setFlavorType(""); setFlavorTaste("");
   };
   const toggleHidden = (bid, fid) => {
     const newLib = brands.map(b => {
@@ -296,6 +331,62 @@ function App() {
       {IS_ADMIN && tab === 'admin' && (
         <>
           {/* --- бренды и вкусы остаются прежними --- */}
+
+{/* === бренды и вкусы === */}
+<div className="card">
+  <div className="hd">
+    <h3>Бренды и вкусы</h3>
+    <p className="desc">Добавляйте, скрывайте и удаляйте вкусы</p>
+  </div>
+  <div className="bd">
+    {/* Добавление бренда */}
+    <div className="row">
+      <input className="input" placeholder="Новый бренд" value={brandName} onChange={e => setBrandName(e.target.value)} />
+      <button className="btn" onClick={addBrand}>Добавить</button>
+    </div>
+    <div className="sep"></div>
+
+    {/* Список брендов */}
+    <div className="grid-2">
+      {brands.map(b => (
+        <div key={b.id} className="mix-card">
+          <div className="row between">
+            <div>
+              <div style={{ fontWeight: 600 }}>{b.name}</div>
+              <div className="tiny muted">вкусов: {b.flavors.length}</div>
+              {b.hidden ? <div className="badge hidden">скрыт</div> : <div className="badge ok">доступен</div>}
+            </div>
+            <div className="grid">
+              <button className="btn small ghost" onClick={() => toggleHidden(b.id)}>
+                {b.hidden ? "показать" : "скрыть"}
+              </button>
+              <button className="btn small danger" onClick={() => delBrand(b.id)}>удалить</button>
+            </div>
+          </div>
+
+          {/* вкусы этого бренда */}
+          <div className="sep"></div>
+          {(b.flavors || []).map(f => (
+            <div key={f.id} className="mix-card row between" style={{ marginLeft: "10px" }}>
+              <div>
+                <div style={{ fontWeight: 600 }}>{f.name}</div>
+                <div className="tiny muted">{f.type}</div>
+                <div className="tiny">{f.taste}</div>
+                {f.hidden ? <div className="badge hidden">скрыт</div> : <div className="badge ok">доступен</div>}
+              </div>
+              <div className="grid">
+                <button className="btn small ghost" onClick={() => toggleFlavorHidden(b.id, f.id)}>
+                  {f.hidden ? "показать" : "скрыть"}
+                </button>
+                <button className="btn small danger" onClick={() => deleteFlavor(b.id, f.id)}>удалить</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
 
           <div className="card">
             <div className="hd">
