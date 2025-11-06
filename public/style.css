@@ -285,3 +285,29 @@ input[type=range] {
 .tab-btn:hover,
 .btn:hover {
   box-shadow: 0 0 12px rgba(240,184,90,0.45);
+ }
+  /* === Фикс растягивания страницы в админке === */
+.admin-panel .grid-2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-start;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.admin-panel .mix-card {
+  flex: 1 1 300px;
+  min-width: 280px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-panel {
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 100%;
+  overflow-x: hidden;
+}
