@@ -322,7 +322,7 @@ function App() {
         </>
       )}
 
-      {/* === ADMIN === */}
+            {/* === ADMIN === */}
       {IS_ADMIN && tab === "admin" && (
         <div className="admin-panel">
           <div className="card">
@@ -353,32 +353,37 @@ function App() {
               <div className="grid-2">
                 {brands.map(b => (
                   <div key={b.id} className="mix-card">
-                    <div className="row between">
+                    <div
+                      className="row between"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setCollapsed(c => ({ ...c, [b.id]: !c[b.id] }))}
+                    >
                       <div>
                         <div style={{ fontWeight: 600 }}>{b.name}</div>
                         <div className="tiny muted">вкусов: {b.flavors.length}</div>
+                        {b.hidden ? <div className="badge hidden">скрыт</div> : <div className="badge ok">доступен</div>}
                       </div>
-                      <div className="grid">
-                        <button className="btn small ghost" onClick={() => toggleHidden(b.id)}>{b.hidden ? "показать" : "скрыть"}</button>
-                        <button className="btn small danger" onClick={() => delBrand(b.id)}>удалить</button>
-                      </div>
+                      <span className="tiny">{collapsed[b.id] ? "▼" : "▲"}</span>
                     </div>
 
-                    <div className="sep"></div>
-
-                    {(b.flavors || []).map(f => (
-                      <div key={f.id} className="mix-card row between" style={{ marginLeft: 10 }}>
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{f.name}</div>
-                          {f.type && <div className="tiny muted">{f.type}</div>}
-                          {f.taste && <div className="tiny">{f.taste}</div>}
-                        </div>
-                        <div className="grid">
-                          <button className="btn small ghost" onClick={() => toggleHidden(b.id, f.id)}>{f.hidden ? "показать" : "скрыть"}</button>
-                          <button className="btn small danger" onClick={() => deleteFlavor(b.id, f.id)}>удалить</button>
-                        </div>
+                    {!collapsed[b.id] && (
+                      <div className="flavor-list" style={{ marginTop: 6 }}>
+                        {(b.flavors || []).map(f => (
+                          <div key={f.id} className="mix-card row between" style={{ marginLeft: 10 }}>
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{f.name}</div>
+                              {f.type && <div className="tiny muted">{f.type}</div>}
+                              {f.taste && <div className="tiny">{f.taste}</div>}
+                              {f.hidden ? <div className="badge hidden">скрыт</div> : <div className="badge ok">доступен</div>}
+                            </div>
+                            <div className="grid">
+                              <button className="btn small ghost" onClick={() => toggleHidden(b.id, f.id)}>{f.hidden ? "показать" : "скрыть"}</button>
+                              <button className="btn small danger" onClick={() => deleteFlavor(b.id, f.id)}>удалить</button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 ))}
               </div>

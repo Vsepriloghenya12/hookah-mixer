@@ -285,14 +285,3 @@ input[type=range] {
 .tab-btn:hover,
 .btn:hover {
   box-shadow: 0 0 12px rgba(240,184,90,0.45);
-}
-.container {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 10px;
-}
-
-.admin-panel {
-  max-width: 720px;
-  margin: auto;
-}
