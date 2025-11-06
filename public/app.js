@@ -243,38 +243,23 @@ function App() {
         </div>
       )}
 
-      {/* === BUILDER === */}
-      {tab === "builder" && (
-        <>
-          <div className="card">
-            <div className="hd"><h3>Поиск по всем вкусам</h3></div>
-            <div className="bd">
-              <input className="input" placeholder="Введите вкус (малина, клубника...)" value={search} onChange={e => setSearch(e.target.value)} />
-              {search && (
-                <div className="search-results">
-                  {brands.flatMap(b =>
-                    b.hidden ? [] :
-                      b.flavors
-                        .filter(f => !f.hidden)
-                        .filter(f => {
-                          const q = search.toLowerCase();
-                          return (
-                            (f.name || "").toLowerCase().includes(q) ||
-                            (f.type || "").toLowerCase().includes(q) ||
-                            (f.taste || "").toLowerCase().includes(q)
-                          );
-                        })
-                        .map(f => (
-                          <div key={`${b.id}-${f.id}`} className="flavor-item">
-                            <div><b>{b.name}</b> — {f.name} <div className="tiny muted">{f.type} — {f.taste}</div></div>
-                            <button className="btn" onClick={() => addFlavor(b.id, f)}>+ в микс</button>
-                          </div>
-                        ))
-                  )}
-                </div>
-              )}
-            </div>
+      {/* ={/* BUILDER */}
+{tab === 'builder' && (
+  <>
+    <div className="card">
+      <div className="hd"><h3>Бренды</h3><p className="desc">Выберите бренд</p></div>
+      <div className="bd builder-brands">
+        {brands.filter(b => !b.hidden).map(b => (
+          <div
+            key={b.id}
+            className={"brand-card" + (selected === b.id ? " active" : "")}
+            onClick={() => setSelected(b.id)}
+          >
+            <h4>{b.name}</h4>
           </div>
+        ))}
+      </div>
+    </div>
 
           <div className="card">
             <div className="hd"><h3>Бренды</h3></div>
