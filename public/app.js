@@ -246,40 +246,10 @@ function App() {
       {/* === BUILDER === */}
       {tab === "builder" && (
         <>
-          <div className="card">
-            <div className="hd"><h3>Поиск по всем вкусам</h3></div>
-            <div className="bd">
-              <input className="input" placeholder="Введите вкус (малина, клубника...)" value={search} onChange={e => setSearch(e.target.value)} />
-              {search && (
-                <div className="search-results">
-                  {brands.flatMap(b =>
-                    b.hidden ? [] :
-                      b.flavors
-                        .filter(f => !f.hidden)
-                        .filter(f => {
-                          const q = search.toLowerCase();
-                          return (
-                            (f.name || "").toLowerCase().includes(q) ||
-                            (f.type || "").toLowerCase().includes(q) ||
-                            (f.taste || "").toLowerCase().includes(q)
-                          );
-                        })
-                        .map(f => (
-                          <div key={`${b.id}-${f.id}`} className="flavor-item">
-                            <div><b>{b.name}</b> — {f.name} <div className="tiny muted">{f.type} — {f.taste}</div></div>
-                            <button className="btn" onClick={() => addFlavor(b.id, f)}>+ в микс</button>
-                          </div>
-                        ))
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          {/* === СПИСОК БРЕНДОВ === */}
-<div className="card bg-gradient-to-b from-gray-950 to-gray-900 text-gray-200 border border-gray-800 shadow-xl mt-4">
+          <div className="card bg-gradient-to-b from-gray-950 to-gray-900 text-gray-200 border border-gray-800 shadow-xl">
   <div className="hd">
     <h3 className="text-lg font-bold text-gray-100 drop-shadow-md">Бренды</h3>
-    <p className="desc text-gray-400">Выберите бренд, чтобы раскрыть вкусы</p>
+    <p className="desc text-gray-400">Нажмите, чтобы раскрыть вкусы</p>
   </div>
 
   <div className="bd flex flex-wrap justify-between gap-3">
@@ -336,7 +306,6 @@ function App() {
     ))}
   </div>
 </div>
-
           <div className="card">
             <div className="hd"><h3>Бренды</h3></div>
             <div className="bd">
