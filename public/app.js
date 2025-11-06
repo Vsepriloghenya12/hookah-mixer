@@ -55,12 +55,8 @@ function App() {
       headers: { "x-admin-id": CURRENT_USER_ID || "" }
     });
     const j = await r.json().catch(() => ({}));
-    if (j.success) {
-      alert("✅ Микс удалён");
-      reloadMixes();
-    } else {
-      alert("⚠️ Ошибка удаления");
-    }
+    if (j.success) reloadMixes();
+    else alert("⚠️ Ошибка удаления");
   };
 
   // === конструктор ===
@@ -155,14 +151,24 @@ function App() {
     setFlavorName(""); setFlavorType(""); setFlavorTaste("");
   };
 
-  const toggleHidden = (bid) => {
-    const newLib = brands.map(b => b.id === bid ? { ...b, hidden: !b.hidden } : b);
-    setBrands(newLib);
-    saveLibrary(newLib);
+  const toggleHidden = (bid, fid) => {
+    const newLib = brands.map(b => {
+      if (b.id !== bid) return b;
+      if (!fid) return { ...b, hidden: !b.hidden };
+      return { ...b, flavors: b.flavors.map(f => f.id === fid ? { ...f, hidden: !f.hidden } : f) };
+    });
+    setBrands(newLib); saveLibrary(newLib);
   };
 
   const delBrand = id => {
     const newLib = brands.filter(b => b.id !== id);
+    setBrands(newLib);
+    saveLibrary(newLib);
+  };
+
+  const deleteFlavor = (bid, fid) => {
+    if (!confirm("Удалить этот вкус?")) return;
+    const newLib = brands.map(b => b.id === bid ? { ...b, flavors: b.flavors.filter(f => f.id !== fid) } : b);
     setBrands(newLib);
     saveLibrary(newLib);
   };
@@ -210,7 +216,7 @@ function App() {
           </div>
 
           <div className="card">
-            <div className="hd"><h3>Бренды и вкусы</h3></div>
+            <div className="hd"><h3>Бренды</h3></div>
             <div className="bd">
               {brands.filter(b => !b.hidden).map(b => (
                 <div key={b.id} className="mix-card">
@@ -253,6 +259,124 @@ function App() {
             </div>
           </div>
         </>
+      )}
+
+      {/* === ADMIN === */}
+      {IS_ADMIN && tab === "admin" && (
+        <div className="admin-panel">
+          <div className="card">
+            <div className="hd"><h3>Бренды и вкусы</h3></div>
+            <div className="bd">
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <input className="input" placeholder="Новый бренд" value={brandName} onChange={e => setBrandName(e.target.value)} />
+                <button className="btn" onClick={addBrand}>Добавить бренд</button>
+              </div>
+
+              <div className="sep"></div>
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <select className="input" value={brandForFlavor} onChange={e => setBrandForFlavor(e.target.value)}>
+                  <option value="">Выберите бренд</option>
+                  {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+                <input className="input" placeholder="Название вкуса" value={flavorName} onChange={e => setFlavorName(e.target.value)} />
+                <input className="input" placeholder="Сам вкус (малина, клубника...)" value={flavorType} onChange={e => setFlavorType(e.target.value)} />
+                <input className="input" placeholder="Описание вкуса (сладкий, кислый...)" value={flavorTaste} onChange={e => setFlavorTaste(e.target.value)} />
+                <label className="tiny">Крепость: {flavorStrength}</label>
+                <input type="range" min="1" max="10" value={flavorStrength} onChange={e => setFlavorStrength(+e.target.value)} />
+                <button className="btn accent" onClick={addFlavorAdmin}>Добавить вкус</button>
+              </div>
+
+              <div className="sep"></div>
+
+              <div className="grid-2">
+                {brands.map(b => (
+                  <div key={b.id} className="mix-card">
+                    <div className="row between">
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{b.name}</div>
+                        <div className="tiny muted">вкусов: {b.flavors.length}</div>
+                      </div>
+                      <div className="grid">
+                        <button className="btn small ghost" onClick={() => toggleHidden(b.id)}>{b.hidden ? "показать" : "скрыть"}</button>
+                        <button className="btn small danger" onClick={() => delBrand(b.id)}>удалить</button>
+                      </div>
+                    </div>
+
+                    <div className="sep"></div>
+
+                    {(b.flavors || []).map(f => (
+                      <div key={f.id} className="mix-card row between" style={{ marginLeft: 10 }}>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{f.name}</div>
+                          {f.type && <div className="tiny muted">{f.type}</div>}
+                          {f.taste && <div className="tiny">{f.taste}</div>}
+                        </div>
+                        <div className="grid">
+                          <button className="btn small ghost" onClick={() => toggleHidden(b.id, f.id)}>{f.hidden ? "показать" : "скрыть"}</button>
+                          <button className="btn small danger" onClick={() => deleteFlavor(b.id, f.id)}>удалить</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="hd"><h3>📦 Резервное копирование</h3></div>
+            <div className="bd grid-2">
+              <button className="btn accent" onClick={async () => {
+                const res = await fetch("/api/library");
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "library_backup.json";
+                a.click();
+              }}>⬇️ Скачать библиотеку</button>
+
+              <button className="btn accent" onClick={async () => {
+                const res = await fetch("/api/mixes");
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "mixes_backup.json";
+                a.click();
+              }}>⬇️ Скачать миксы</button>
+
+              <button className="btn" onClick={() => document.getElementById("uploadLibrary").click()}>⬆️ Загрузить библиотеку</button>
+              <input id="uploadLibrary" type="file" accept=".json" style={{ display: "none" }} onChange={async e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const text = await file.text();
+                try {
+                  const data = JSON.parse(text);
+                  await fetch("/api/library", { method: "POST", headers: { "Content-Type": "application/json", "x-admin-id": CURRENT_USER_ID || "" }, body: JSON.stringify(data) });
+                  alert("✅ Библиотека восстановлена");
+                  fetch("/api/library").then(r => r.json()).then(setBrands);
+                } catch { alert("⚠️ Ошибка при загрузке"); }
+              }} />
+
+              <button className="btn" onClick={() => document.getElementById("uploadMixes").click()}>⬆️ Загрузить миксы</button>
+              <input id="uploadMixes" type="file" accept=".json" style={{ display: "none" }} onChange={async e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const text = await file.text();
+                try {
+                  const data = JSON.parse(text);
+                  for (const mix of data) {
+                    await fetch("/api/mixes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mix) });
+                  }
+                  alert("✅ Миксы восстановлены");
+                  fetch("/api/mixes").then(r => r.json()).then(setMixes);
+                } catch { alert("⚠️ Ошибка при загрузке файла"); }
+              }} />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
