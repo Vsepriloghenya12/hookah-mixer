@@ -311,3 +311,42 @@ input[type=range] {
   max-width: 100%;
   overflow-x: hidden;
 }
+/* === Сетка брендов в конструкторе === */
+.builder-brands {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.brand-card {
+  flex: 1 1 calc(50% - 12px);
+  min-width: 140px;
+  max-width: 180px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.brand-card.active {
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+}
+
+.brand-card:hover {
+  transform: scale(1.03);
+}
+
+.brand-card h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
