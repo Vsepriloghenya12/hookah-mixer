@@ -9,11 +9,10 @@
 </head>
 <body>
 
-<!-- 🌫️ Анимированный фон -->
+<!-- 🌫️ Оригинальный вступительный экран (не тронут) -->
 <div class="smoke-layer"></div>
 <div class="smoke-layer second"></div>
 
-<!-- Вступительный экран -->
 <div id="welcome">
   <h1>Добро пожаловать<br>в мир кальянной миксологии</h1>
   <img src="Logo Black.png" class="logo-main" alt="logo">
@@ -22,8 +21,8 @@
   </div>
 </div>
 
-<!-- Основное приложение -->
-<div id="root"></div>
+<!-- 🔥 Основное приложение -->
+<div id="root" class="app-root"></div>
 
 <!-- React -->
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -51,7 +50,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   document.body.addEventListener('click', () => {
     document.querySelectorAll('.smoke-layer').forEach(el => {
       el.classList.remove('pulse-smoke');
-      void el.offsetWidth; // сброс анимации
+      void el.offsetWidth;
       el.classList.add('pulse-smoke');
     });
   });
