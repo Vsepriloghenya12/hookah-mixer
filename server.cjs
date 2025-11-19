@@ -92,6 +92,7 @@ app.post("/api/mixes", (req, res) => {
 
     newMix.id = Date.now().toString();
     newMix.likes = 0;
+    newMix.comments = []; // Новое: массив для комментариев
     data.push(newMix);
     writeJSON(mixesFile, data);
     res.json({ success: true });
@@ -114,6 +115,22 @@ app.post("/api/mixes/:id/like", (req, res) => {
   }
 });
 
+// Добавление комментария
+app.post("/api/mixes/:id/comment", (req, res) => {
+  try {
+    const data = readJSON(mixesFile);
+    const mix = data.find(m => m.id === req.params.id);
+    if (!mix) return res.status(404).json({ success: false });
+    const comment = { text: req.body.text, author: req.body.author, id: Date.now().toString() };
+    mix.comments = mix.comments || [];
+    mix.comments.push(comment);
+    writeJSON(mixesFile, data);
+    res.json({ success: true, mix });
+  } catch (e) {
+    res.status(500).json({ error: "server error" });
+  }
+});
+
 // Удаление микса (только админ)
 app.delete("/api/mixes/:id", (req, res) => {
   try {
@@ -125,6 +142,34 @@ app.delete("/api/mixes/:id", (req, res) => {
 
     writeJSON(mixesFile, updated);
     res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+// Рекомендации
+app.get("/api/recommend", (req, res) => {
+  try {
+    const data = readJSON(mixesFile);
+    const prefs = req.query.prefs ? JSON.parse(req.query.prefs) : {}; // {taste: 'сладкий', strength: 5}
+    const filtered = data.filter(m => 
+      (prefs.taste && m.finalTaste.toLowerCase() === prefs.taste.toLowerCase()) ||
+      (prefs.strength && Math.abs(m.avgStrength - prefs.strength) <= 1)
+    ).sort((a, b) => b.likes - a.likes).slice(0, 5);
+    res.json(filtered);
+  } catch (e) {
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+// Статистика
+app.get("/api/stats", (req, res) => {
+  try {
+    const data = readJSON(mixesFile);
+    const topMixes = data.sort((a, b) => b.likes - a.likes).slice(0, 10);
+    const tastes = data.reduce((acc, m) => { acc[m.finalTaste] = (acc[m.finalTaste] || 0) + 1; return acc; }, {});
+    const topTastes = Object.entries(tastes).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    res.json({ topMixes, topTastes });
   } catch (e) {
     res.status(500).json({ error: "server error" });
   }
