@@ -1,7 +1,7 @@
-const { useState, useEffect, useMemo, memo } = React;
+const { useState, useEffect } = React;
 
 let tg = window.Telegram?.WebApp || null;
-let CURRENT_USER_ID = 0, CURRENT_USER_NAME = "Гость";
+let CURRENT_USER_ID = 0, CURRENT_USERNAME = "", CURRENT_USER_NAME = "Гость";
 const ADMIN_USERNAMES = ["tutenhaman", "brgmnstrr"];
 const ADMIN_IDS = [504348666, 2015942051];
 
@@ -9,17 +9,24 @@ try {
   if (tg && tg.initDataUnsafe?.user) {
     const u = tg.initDataUnsafe.user;
     CURRENT_USER_ID = u.id;
+    CURRENT_USERNAME = (u.username || "").toLowerCase();
     CURRENT_USER_NAME = [u.first_name, u.last_name].filter(Boolean).join(" ") || "Гость";
   }
 } catch {}
-const IS_ADMIN = ADMIN_USERNAMES.includes((tg?.initDataUnsafe?.user?.username || "").toLowerCase()) || ADMIN_IDS.includes(CURRENT_USER_ID);
+const IS_ADMIN = ADMIN_USERNAMES.includes(CURRENT_USERNAME) || ADMIN_IDS.includes(CURRENT_USER_ID);
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
 const TASTE_COLORS = {
-  "сладкий": "#f5a623", "кислый": "#f56d6d", "свежий": "#4fc3f7", "десертный": "#d18df0",
-  "пряный": "#ff8c00", "чайный": "#c1b684", "алкогольный": "#a970ff",
-  "гастрономический": "#90a955", "травяной": "#6ab04c"
+  "сладкий": "#f5a623",
+  "кислый": "#f56d6d",
+  "свежий": "#4fc3f7",
+  "десертный": "#d18df0",
+  "пряный": "#ff8c00",
+  "чайный": "#c1b684",
+  "алкогольный": "#a970ff",
+  "гастрономический": "#90a955",
+  "травяной": "#6ab04c"
 };
 const tasteColor = t => TASTE_COLORS[(t || "").toLowerCase()] || "#ccc";
 
@@ -31,99 +38,29 @@ function debounce(func, delay) {
   };
 }
 
-// Карточка микса — мемоизируем, чтобы не перерисовывалась зря
-const MixCard = memo(({ m, likes, toggleLike, shareMix, deleteMix, addComment }) => {
-  const [text, setText] = useState("");
-  return (
-    <div className="mix-card card-soft">
-      <div className="row between">
-        <div>
-          <div className="mix-title">{m.name}</div>
-          <div className="tiny muted">от {m.author}</div>
-        </div>
-        <div className="row">
-          <button className={"btn small like " + (likes[m.id] ? "accent" : "")} onClick={() => toggleLike(m.id)}>
-            ❤ {m.likes || 0}
-          </button>
-          <button className="btn small" onClick={() => shareMix(m)}>📤</button>
-          {IS_ADMIN && <button className="btn small danger" onClick={() => deleteMix(m.id)}>✕</button>}
-        </div>
-      </div>
-      <div className="tiny">Крепость: <b>{m.avgStrength}</b></div>
-      <div className="row tag-row">
-        <span className="badge tag" style={{ background: tasteColor(m.finalTaste), color: "#000" }}>{m.finalTaste}</span>
-      </div>
-      <div className="tiny muted">Состав: {m.flavors.map(p => `${p.name} ${p.percent}%`).join(" + ")}</div>
-
-      <div className="comments">
-        {(m.comments || []).slice(0, 5).map((c, i) => (
-          <div key={i} className="tiny muted">{c.author}: {c.text}</div>
-        ))}
-        {m.comments?.length > 5 && <div className="tiny muted">…ещё {m.comments.length - 5}</div>}
-        <input
-          className="input small"
-          placeholder="Комментарий"
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === "Enter" && text.trim()) {
-              addComment(m.id, text.trim());
-              setText("");
-            }
-          }}
-        />
-      </div>
-    </div>
-  );
-});
-
 function App() {
   const [tab, setTab] = useState("community");
   const [brands, setBrands] = useState([]);
   const [mixes, setMixes] = useState([]);
   const [likes, setLikes] = useState({});
   const [banned, setBanned] = useState([]);
-  const [collapsed, setCollapsed] = useState({});
-  const [userPrefs, setUserPrefs] = useState({});
-  const [userFlavors, setUserFlavors] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
-  const [stats, setStats] = useState({ topMixes: [], topTastes: [] });
+  const [collapsed, setCollapsed] = useState({}); // визуал: будем заполнять при загрузке
 
-  // === Загрузка данных ===
   useEffect(() => {
-    Promise.all([
-      fetch("/api/library").then(r => r.json()),
-      fetch("/api/mixes").then(r => r.json())
-    ]).then(([lib, mx]) => {
-      setBrands(lib);
-      setMixes(mx);
-
+    fetch("/api/library").then(r => r.json()).then(data => {
+      setBrands(data);
+      // 🔽 Новое: сворачиваем ВСЕ бренды по умолчанию (только визуал)
       const init = {};
-      lib.forEach(b => init[b.id] = true);
+      (data || []).forEach(b => { init[b.id] = true; });
       setCollapsed(init);
     }).catch(console.error);
 
+    fetch("/api/mixes").then(r => r.json()).then(setMixes).catch(console.error);
     try { setBanned(JSON.parse(localStorage.getItem("bannedWords") || "[]")); } catch {}
-    try { setUserPrefs(JSON.parse(localStorage.getItem("userPrefs") || "{}")); } catch {}
-    try { setUserFlavors(JSON.parse(localStorage.getItem("userFlavors") || "[]")); } catch {}
   }, []);
-
-  // === Рекомендации и статистика ===
-  useEffect(() => {
-    fetch("/api/recommend?prefs=" + encodeURIComponent(JSON.stringify(userPrefs)))
-      .then(r => r.json())
-      .then(setRecommendations)
-      .catch(() => setRecommendations([]));
-
-    fetch("/api/stats")
-      .then(r => r.json())
-      .then(setStats)
-      .catch(() => setStats({ topMixes: [], topTastes: [] }));
-  }, [userPrefs, mixes]);
 
   const reloadMixes = () => fetch("/api/mixes").then(r => r.json()).then(setMixes);
 
-  // === Лайк ===
   const toggleLike = async (id) => {
     const already = !!likes[id];
     const delta = already ? -1 : 1;
@@ -132,33 +69,22 @@ function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ delta })
     });
-    if (r.ok) {
-      const mix = mixes.find(m => m.id === id);
-      setMixes(ms => ms.map(m => m.id === id ? { ...m, likes: (m.likes || 0) + delta } : m));
-      setLikes(s => ({ ...s, [id]: !already }));
-      if (!already && mix) {
-        const prefs = { taste: mix.finalTaste, strength: mix.avgStrength };
-        setUserPrefs(prefs);
-        localStorage.setItem("userPrefs", JSON.stringify(prefs));
-      }
+    const j = await r.json();
+    if (j.success) {
+      setMixes(ms => ms.map(m => m.id === id ? { ...m, likes: j.mix.likes } : m));
+      setLikes(s => { const n = { ...s }; if (already) delete n[id]; else n[id] = 1; return n; });
     }
   };
 
-  const addComment = async (id, text) => {
-    await fetch(`/api/mixes/${id}/comment`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, author: CURRENT_USER_NAME })
-    });
-    reloadMixes();
-  };
-
-  const shareMix = (mix) => tg?.shareUrl(`https://t.me/hookhanmix_bot?startapp=mix_${mix.id}`, `Микс: ${mix.name}`);
-
   const deleteMix = async (id) => {
-    if (!confirm("Удалить микс?")) return;
-    await fetch(`/api/mixes/${id}`, { method: "DELETE", headers: { "x-admin-id": CURRENT_USER_ID } });
-    reloadMixes();
+    if (!confirm("Удалить этот микс?")) return;
+    const r = await fetch(`/api/mixes/${id}`, {
+      method: "DELETE",
+      headers: { "x-admin-id": CURRENT_USER_ID || "" }
+    });
+    const j = await r.json().catch(() => ({}));
+    if (j.success) reloadMixes();
+    else alert("⚠️ Ошибка удаления");
   };
 
   // === BUILDER ===
@@ -168,29 +94,32 @@ function App() {
   const avg = parts.length && total > 0 ? Math.round(parts.reduce((a, p) => a + p.percent * p.strength, 0) / total) : 0;
   const remaining = Math.max(0, 100 - total);
 
-  const tasteTotals = useMemo(() => {
-    const tot = {};
-    parts.forEach(p => {
-      if (p.taste) tot[p.taste.trim().toLowerCase()] = (tot[p.taste.trim().toLowerCase()] || 0) + p.percent;
-    });
-    return tot;
-  }, [parts]);
-
-  const finalTaste = Object.keys(tasteTotals).length
-    ? Object.entries(tasteTotals).sort((a, b) => b[1] - a[1])[0][0]
-    : "—";
+  let tasteTotals = {};
+  for (const p of parts) {
+    if (!p.taste) continue;
+    const t = p.taste.trim().toLowerCase();
+    tasteTotals[t] = (tasteTotals[t] || 0) + p.percent;
+  }
+  let finalTaste = "—";
+  if (Object.keys(tasteTotals).length) {
+    const [mainTaste] = Object.entries(tasteTotals).sort((a, b) => b[1] - a[1])[0];
+    finalTaste = mainTaste;
+  }
 
   const addFlavor = (brandId, fl) => {
     if (remaining <= 0) return;
     const key = `${brandId}:${fl.id}`;
-    if (parts.some(p => p.key === key)) return;
-    setParts(p => [...p, { key, brandId, flavorId: fl.id, name: fl.name, taste: fl.taste, strength: fl.strength, percent: Math.min(20, remaining) }]);
+    setParts(p => p.some(x => x.key === key)
+      ? p
+      : [...p, { key, brandId, flavorId: fl.id, name: fl.name, taste: fl.taste, strength: fl.strength, percent: Math.min(20, remaining) }]
+    );
   };
 
   const updatePct = (key, val) => {
     setParts(prev => {
       const sumOthers = prev.reduce((a, b) => a + (b.key === key ? 0 : b.percent), 0);
-      const clamped = clamp(val, 0, 100 - sumOthers);
+      const allowed = Math.max(0, 100 - sumOthers);
+      const clamped = clamp(val, 0, allowed);
       return prev.map(x => x.key === key ? { ...x, percent: clamped } : x);
     });
   };
@@ -198,139 +127,215 @@ function App() {
   const removePart = key => setParts(p => p.filter(x => x.key !== key));
 
   const saveMix = async () => {
-    if (total !== 100) return alert("Сумма должна быть 100%");
-    const title = prompt("Название микса:");
-    if (!title?.trim()) return;
-    const bad = banned.some(w => title.toLowerCase().includes(w.toLowerCase()));
-    if (bad) return alert("Запрещённое слово");
-    const mix = { name: title.trim(), author: CURRENT_USER_NAME, flavors: parts, avgStrength: avg, finalTaste, comments: [] };
-    await fetch("/api/mixes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mix) });
-    alert("Микс сохранён!");
-    setParts([]);
-    reloadMixes();
+    if (total !== 100) return alert("Сумма процентов должна быть 100%");
+    const title = prompt("Введите название микса:");
+    if (!title) return;
+    const bad = banned.find(w => title.toLowerCase().includes(String(w).toLowerCase()));
+    if (bad) return alert(`❌ Запрещённое слово: "${bad}"`);
+    const mix = { name: title.trim(), author: CURRENT_USER_NAME, flavors: parts, avgStrength: avg, finalTaste };
+    const r = await fetch("/api/mixes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mix) });
+    const j = await r.json();
+    if (j.success) { alert("✅ Микс сохранён"); setParts([]); reloadMixes(); }
   };
 
-  const generateFromMyFlavors = () => {
-    if (!userFlavors.length) return alert("Сначала добавьте свои вкусы");
-    const cnt = Math.floor(Math.random() * 3) + 2;
-    const selected = userFlavors.sort(() => 0.5 - Math.random()).slice(0, cnt);
-    let left = 100;
-    const newParts = selected.map((f, i) => {
-      const pct = i === cnt - 1 ? left : Math.max(15, Math.floor(Math.random() * (left - 15)));
-      left -= pct;
-      return { ...f, percent: pct };
+  // === ADMIN ===
+  const [brandName, setBrandName] = useState("");
+  const [flavorName, setFlavorName] = useState("");
+  const [flavorTaste, setFlavorTaste] = useState("");
+  const [flavorType, setFlavorType] = useState("");
+  const [flavorStrength, setFlavorStrength] = useState(5);
+  const [brandForFlavor, setBrandForFlavor] = useState("");
+
+  const saveLibrary = async (lib) => {
+    await fetch("/api/library", { method: "POST", headers: { "Content-Type": "application/json", "x-admin-id": CURRENT_USER_ID || "" }, body: JSON.stringify(lib) });
+  };
+
+  const addBrand = () => {
+    const name = brandName.trim();
+    if (!name) return;
+    const id = name.toLowerCase().replace(/\s+/g, "-");
+    const newLib = [...brands, { id, name, hidden: false, flavors: [] }];
+    setBrands(newLib);
+    saveLibrary(newLib);
+    setBrandName("");
+  };
+
+  const addFlavorAdmin = () => {
+    const b = brands.find(x => x.id === brandForFlavor);
+    if (!b) return;
+    const name = flavorName.trim();
+    if (!name) return;
+    const fl = {
+      id: name.toLowerCase().replace(/\s+/g, "-"),
+      name,
+      type: flavorType,
+      strength: flavorStrength,
+      taste: flavorTaste,
+      hidden: false
+    };
+    const newLib = brands.map(x => x.id === b.id ? { ...x, flavors: [...x.flavors, fl] } : x);
+    setBrands(newLib);
+    saveLibrary(newLib);
+    setFlavorName(""); setFlavorType(""); setFlavorTaste("");
+  };
+
+  const toggleHidden = (bid, fid) => {
+    const newLib = brands.map(b => {
+      if (b.id !== bid) return b;
+      if (!fid) return { ...b, hidden: !b.hidden };
+      return { ...b, flavors: b.flavors.map(f => f.id === fid ? { ...f, hidden: !f.hidden } : f) };
     });
-    setParts(newParts);
+    setBrands(newLib); saveLibrary(newLib);
   };
 
-  const addUserFlavor = (brandId, fl) => {
-    const key = `${brandId}:${fl.id}`;
-    if (userFlavors.some(f => f.key === key)) return;
-    const newF = { key, brandId, flavorId: fl.id, name: fl.name, taste: fl.taste, strength: fl.strength };
-    const list = [...userFlavors, newF];
-    setUserFlavors(list);
-    localStorage.setItem("userFlavors", JSON.stringify(list));
+  const delBrand = id => {
+    const newLib = brands.filter(b => b.id !== id);
+    setBrands(newLib);
+    saveLibrary(newLib);
   };
 
-  const removeUserFlavor = key => {
-    const list = userFlavors.filter(f => f.key !== key);
-    setUserFlavors(list);
-    localStorage.setItem("userFlavors", JSON.stringify(list));
+  const deleteFlavor = (bid, fid) => {
+    if (!confirm("Удалить этот вкус?")) return;
+    const newLib = brands.map(b => b.id === bid ? { ...b, flavors: b.flavors.filter(f => f.id !== fid) } : b);
+    setBrands(newLib);
+    saveLibrary(newLib);
   };
 
-  // === Фильтры сообщества ===
+  // === COMMUNITY (Миксы) ===
+  const tasteCategories = Array.from(new Set(mixes.map(m => (m.finalTaste || "").toLowerCase()).filter(Boolean)));
   const [pref, setPref] = useState("all");
-  const [strengthFilter, setStrengthFilter] = useState(5);
-
-  const filtered = useMemo(() => mixes
+  const [strengthFilter, setStrengthFilter] = useState(5); // переименовал локально, чтобы не путать со слайдером билдера
+  const filtered = mixes
     .filter(m => pref === "all" || (m.finalTaste || "").toLowerCase().includes(pref))
     .filter(m => Math.abs((m.avgStrength || 0) - strengthFilter) <= 1)
-    .sort((a, b) => (b.likes || 0) - (a.likes || 0)), [mixes, pref, strengthFilter]);
-
-  const tasteCategories = useMemo(() => Array.from(new Set(mixes.map(m => m.finalTaste).filter(Boolean))), [mixes]);
-
-  // === Советы ===
-  const tips = [
-    { title: "Забивка чаши", content: "Фольга или kalaud — не пережимайте табак, воздух должен проходить." },
-    { title: "Угли", content: "Кокосовые 3–4 шт., разогревать 5–7 минут." },
-    { title: "Безопасность", content: "Пейте воду и проветривайте помещение." },
-    { title: "Новичкам", content: "Начинайте с лёгких вкусов и крепости 3–5." }
-  ];
+    .sort((a, b) => (b.likes || 0) - (a.likes || 0));
 
   return (
     <div className="container app-theme">
       <header className="title with-icon">Кальянный Миксер</header>
 
+      {/* Вкладки */}
       <div className="tabs glass">
-        <button className={tab === "community" ? "tab-btn active" : "tab-btn"} onClick={() => setTab("community")}>Миксы</button>
-        <button className={tab === "builder" ? "tab-btn active" : "tab-btn"} onClick={() => setTab("builder")}>Конструктор</button>
-        <button className={tab === "trends" ? "tab-btn active" : "tab-btn"} onClick={() => setTab("trends")}>Тренды</button>
-        <button className={tab === "tips" ? "tab-btn active" : "tab-btn"} onClick={() => setTab("tips")}>Советы</button>
-        {IS_ADMIN && <button className={tab === "admin" ? "tab-btn active" : "tab-btn"} onClick={() => setTab("admin")}>Админ</button>}
+        <button className={"tab-btn" + (tab === 'community' ? ' active' : '')} onClick={() => setTab('community')}>
+          <span className="ico ico-star"></span>Миксы
+        </button>
+        <button className={"tab-btn" + (tab === 'builder' ? ' active' : '')} onClick={() => setTab('builder')}>
+          <span className="ico ico-drop"></span>Конструктор
+        </button>
+        {IS_ADMIN && <button className={"tab-btn" + (tab === 'admin' ? ' active' : '')} onClick={() => setTab('admin')}>
+          <span className="ico ico-shield"></span>Админ
+        </button>}
       </div>
 
-      {/* COMMUNITY */}
-      {tab === "community" && (
-        <>
-          {recommendations.length > 0 && (
-            <div className="card glow">
-              <div className="hd"><h3>Для вас</h3></div>
-              <div className="bd grid">{recommendations.map(m => <MixCard key={m.id} m={m} likes={likes} toggleLike={toggleLike} shareMix={shareMix} deleteMix={deleteMix} addComment={addComment} />)}</div>
-            </div>
-          )}
-
-          <div className="card glow">
-            <div className="hd"><h3>Все миксы</h3></div>
-            <div className="bd">
-              <div className="grid-2">
-                <button className={"btn " + (pref === "all" ? "accent" : "")} onClick={() => setPref("all")}>Все</button>
-                {tasteCategories.map(t => <button key={t} className={"btn " + (pref === t ? "accent" : "")} onClick={() => setPref(t)}>{t}</button>)}
-              </div>
-              <div className="slider-row">
-                <span>Крепость: <b>{strengthFilter}</b></span>
-                <input type="range" min="1" max="10" value={strengthFilter} onChange={e => setStrengthFilter(+e.target.value)} />
-              </div>
-              <div className="grid">
-                {filtered.map(m => <MixCard key={m.id} m={m} likes={likes} toggleLike={toggleLike} shareMix={shareMix} deleteMix={deleteMix} addComment={addComment} />)}
-              </div>
-            </div>
+      {/* === COMMUNITY === */}
+      {tab === 'community' && (
+        <div className="card glow">
+          <div className="hd">
+            <h3 className="h3 with-ico-star">Рекомендации</h3>
+            <p className="desc">Выберите настроение и крепость</p>
           </div>
-        </>
-      )}
-
-      {/* BUILDER — упрощённый, но полностью рабочий */}
-      {tab === "builder" && (
-        <>
-          {/* Поиск и бренды — оставил как было, но с debounce */}
-          <div className="card glow">
-            <div className="hd"><h3>Поиск</h3></div>
-            <div className="bd">
-              <input className="input" placeholder="Вкус…" value={search} onChange={debounce(e => setSearch(e.target.value.toLowerCase()), 300)} />
+          <div className="bd">
+            <div className="grid-2">
+              <button className={"btn " + (pref === 'all' ? 'accent' : '')} onClick={() => setPref('all')}>Все</button>
+              {tasteCategories.map(t => (
+                <button key={t} className={"btn " + (pref === t ? 'accent' : '')} onClick={() => setPref(t)}>{t}</button>
+              ))}
             </div>
-          </div>
-
-          {/* Твои вкусы + генератор */}
-          <div className="card glow">
-            <div className="hd"><h3>Мои вкусы ({userFlavors.length})</h3></div>
-            <div className="bd">
-              {userFlavors.map(f => (
-                <div key={f.key} className="flavor-item soft row between">
-                  <span>{f.name}</span>
-                  <button className="btn small danger" onClick={() => removeUserFlavor(f.key)}>×</button>
+            <div className="sep"></div>
+            <div className="slider-row">
+              <span className="control"><span className="ico ico-drop"></span>Крепость: <b>{strengthFilter}</b></span>
+              <input type="range" min="1" max="10" value={strengthFilter} onChange={e => setStrengthFilter(+e.target.value)} />
+            </div>
+            <div className="sep"></div>
+            <div className="grid">
+              {filtered.map(m => (
+                <div key={m.id} className="mix-card card-soft">
+                  <div className="row between">
+                    <div>
+                      <div className="mix-title">{m.name}</div>
+                      <div className="tiny muted">от {m.author}</div>
+                    </div>
+                    <div className="row">
+                      <button className={"btn small like " + (likes[m.id] ? 'accent' : '')} onClick={() => toggleLike(m.id)}>❤ {m.likes}</button>
+                      {IS_ADMIN && <button className="btn small danger" onClick={() => deleteMix(m.id)}>✕</button>}
+                    </div>
+                  </div>
+                  <div className="tiny">Крепость: <b>{m.avgStrength}</b></div>
+                  <div className="row tag-row">
+                    <span className="badge tag" style={{ background: tasteColor(m.finalTaste), color: "#000", border: "none" }}>{m.finalTaste}</span>
+                  </div>
+                  <div className="tiny muted">Состав: {m.flavors.map(p => `${p.name} ${p.percent}%`).join(' + ')}</div>
                 </div>
               ))}
-              <button className="btn accent" onClick={generateFromMyFlavors}>Сгенерировать из моих</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === BUILDER === */}
+      {tab === "builder" && (
+        <>
+          <div className="card glow">
+            <div className="hd"><h3 className="h3 with-ico-drop">Поиск по всем вкусам</h3></div>
+            <div className="bd">
+              <input className="input" placeholder="Введите вкус (малина, клубника...)" value={search} onChange={debounce(e => setSearch(e.target.value), 300)} />
+              {search && (
+                <div className="search-results">
+                  {brands.flatMap(b =>
+                    b.hidden ? [] :
+                      b.flavors
+                        .filter(f => !f.hidden)
+                        .filter(f => {
+                          const q = search.toLowerCase();
+                          return (
+                            (f.name || "").toLowerCase().includes(q) ||
+                            (f.type || "").toLowerCase().includes(q) ||
+                            (f.taste || "").toLowerCase().includes(q)
+                          );
+                        })
+                        .map(f => (
+                          <div key={`${b.id}-${f.id}`} className="flavor-item soft">
+                            <div><b>{b.name}</b> — {f.name} <div className="tiny muted">{f.type} — {f.taste}</div></div>
+                            <button className="btn" onClick={() => addFlavor(b.id, f)}>+ в микс</button>
+                          </div>
+                        ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Текущий микс */}
           <div className="card glow">
-            <div className="hd"><h3>Ваш микс</h3></div>
+            <div className="hd"><h3 className="h3 with-ico-flame">Бренды</h3></div>
+            <div className="bd brands-grid">
+              {brands.filter(b => !b.hidden).map(b => (
+                <div key={b.id} className="mix-card brand-box" onClick={() => setCollapsed(c => ({ ...c, [b.id]: !c[b.id] }))}>
+                  <div className="row between brand-head" style={{ cursor: "pointer" }}>
+                    <b className="brand-name"><span className="ico ico-flame"></span>{b.name}</b>
+                    <span className="tiny arrow">{collapsed[b.id] ? "▼" : "▲"}</span>
+                  </div>
+                  {!collapsed[b.id] && (
+                    <div className="flavor-list">
+                      {b.flavors.filter(f => !f.hidden).map(f => (
+                        <div key={f.id} className="flavor-item soft">
+                          <div><b>{f.name}</b> <div className="tiny muted">{f.type} — {f.taste}</div></div>
+                          <button className="btn" onClick={(e) => { e.stopPropagation(); addFlavor(b.id, f); }}>+ в микс</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card glow">
+            <div className="hd"><h3 className="h3 with-ico-star">Ваш микс</h3></div>
             <div className="bd grid">
               {parts.map(p => (
                 <div key={p.key} className="mix-card soft">
                   <div className="row between">
-                    <div><b>{p.name}</b> <small>{p.taste}</small></div>
+                    <div><b>{p.name}</b><div className="tiny muted">{p.taste}</div></div>
                     <button className="btn small" onClick={() => removePart(p.key)}>×</button>
                   </div>
                   <input type="range" min="0" max="100" step="5" value={p.percent} onChange={e => updatePct(p.key, +e.target.value)} />
@@ -338,53 +343,195 @@ function App() {
                 </div>
               ))}
               <div className="tiny muted">
-                Итого: {total}% • Крепость {avg} • Вкус: {finalTaste}
+                Итого: {total}% (осталось {100 - total}%) • Крепость {avg} • Вкус: {finalTaste}
               </div>
-              <button className="btn accent" disabled={total !== 100} onClick={saveMix}>Сохранить микс</button>
+              <button className={"btn accent save-btn"} onClick={saveMix} disabled={total !== 100}><span className="ico ico-star"></span>Сохранить</button>
             </div>
           </div>
         </>
       )}
 
-      {/* TRENDS и TIPS — простые */}
-      {tab === "trends" && (
-        <div className="card glow">
-          <div className="hd"><h3>Тренды</h3></div>
-          <div className="bd">
-            <h4>Топ миксов</h4>
-            {stats.topMixes.map(m => <div key={m.id} className="mix-card card-soft">{m.name} — {m.likes} ❤</div>)}
-            <h4>Популярные вкусы</h4>
-            <div className="tag-row">
-              {stats.topTastes.map(([t, c]) => <span key={t} className="badge tag" style={{ background: tasteColor(t) }}>{t} ({c})</span>)}
+      {/* === ADMIN === */}
+      {IS_ADMIN && tab === "admin" && (
+        <div className="admin-panel">
+          <div className="card glow">
+            <div className="hd">
+              <h3 className="h3 with-ico-shield">Бренды и вкусы</h3>
+              <p className="desc">Добавляйте, скрывайте и удаляйте вкусы и бренды</p>
+            </div>
+
+            <div className="bd">
+              {/* Добавление бренда */}
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <input className="input" placeholder="Новый бренд" value={brandName} onChange={e => setBrandName(e.target.value)} />
+                <button className="btn accent" onClick={addBrand}><span className="ico ico-flame"></span>Добавить бренд</button>
+              </div>
+
+              <div className="sep"></div>
+
+              {/* Добавление вкуса */}
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <select className="input" value={brandForFlavor} onChange={e => setBrandForFlavor(e.target.value)}>
+                  <option value="">Выберите бренд</option>
+                  {brands.map(b => (<option key={b.id} value={b.id}>{b.name}</option>))}
+                </select>
+
+                <input className="input" placeholder="Название вкуса" value={flavorName} onChange={e => setFlavorName(e.target.value)} />
+                <input className="input" placeholder="Сам вкус (малина, клубника...)" value={flavorType} onChange={e => setFlavorType(e.target.value)} />
+                <input className="input" placeholder="Описание вкуса (сладкий, кислый...)" value={flavorTaste} onChange={e => setFlavorTaste(e.target.value)} />
+
+                <label className="tiny control"><span className="ico ico-drop"></span>Крепость: {flavorStrength}</label>
+                <input className="input" type="range" min="1" max="10" value={flavorStrength} onChange={e => setFlavorStrength(+e.target.value)} />
+
+                <button className="btn accent" onClick={addFlavorAdmin}><span className="ico ico-star"></span>Добавить вкус</button>
+              </div>
+
+              <div className="sep"></div>
+
+              {/* Список брендов */}
+              <div className="grid-2">
+                {brands.map(b => (
+                  <div key={b.id} className="mix-card brand-box">
+                    <div className="row between" style={{ cursor: "pointer" }} onClick={() => setCollapsed(c => ({ ...c, [b.id]: !c[b.id] }))}>
+                      <div>
+                        <div className="mix-title">{b.name}</div>
+                        <div className="tiny muted">вкусов: {b.flavors.length}</div>
+                        {b.hidden ? <div className="badge hidden">скрыт</div> : <div className="badge ok">доступен</div>}
+                      </div>
+
+                      <div className="grid" style={{ gap: 6, alignItems: "center" }}>
+                        <button className="btn small ghost" onClick={(e) => { e.stopPropagation(); toggleHidden(b.id); }}>
+                          {b.hidden ? "показать" : "скрыть"}
+                        </button>
+
+                        <button className="btn small danger" onClick={(e) => { e.stopPropagation(); delBrand(b.id); }}>
+                          удалить
+                        </button>
+
+                        <span className="tiny arrow">{collapsed[b.id] ? "▼" : "▲"}</span>
+                      </div>
+                    </div>
+
+                    {!collapsed[b.id] && (
+                      <div className="flavor-list" style={{ marginTop: 6 }}>
+                        {(b.flavors || []).map(f => (
+                          <div key={f.id} className="mix-card row between soft" style={{ marginLeft: 10 }}>
+                            <div>
+                              <div className="mix-title">{f.name}</div>
+                              {f.type && <div className="tiny muted">{f.type}</div>}
+                              {f.taste && <div className="tiny">{f.taste}</div>}
+                              {f.hidden ? <div className="badge hidden">скрыт</div> : <div className="badge ok">доступен</div>}
+                            </div>
+                            <div className="grid">
+                              <button className="btn small ghost" onClick={(e) => { e.stopPropagation(); toggleHidden(b.id, f.id); }}>
+                                {f.hidden ? "показать" : "скрыть"}
+                              </button>
+
+                              <button className="btn small danger" onClick={(e) => { e.stopPropagation(); deleteFlavor(b.id, f.id); }}>
+                                удалить
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* === РЕЗЕРВНОЕ КОПИРОВАНИЕ === */}
+          <div className="card glow">
+            <div className="hd">
+              <h3 className="h3 with-ico-star">📦 Резервное копирование</h3>
+              <p className="desc">Сохраняйте и восстанавливайте данные миксов и вкусов</p>
+            </div>
+
+            <div className="bd grid-2">
+              <button className="btn accent" onClick={async () => {
+                const res = await fetch("/api/library");
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "library_backup.json";
+                a.click();
+              }}><span className="ico ico-flame"></span>⬇️ Скачать библиотеку</button>
+
+              <button className="btn accent" onClick={async () => {
+                const res = await fetch("/api/mixes");
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "mixes_backup.json";
+                a.click();
+              }}><span className="ico ico-star"></span>⬇️ Скачать миксы</button>
+
+              <button className="btn" onClick={() => document.getElementById("uploadLibrary").click()}>⬆️ Загрузить библиотеку</button>
+              <input
+                type="file"
+                id="uploadLibrary"
+                accept=".json"
+                style={{ display: "none" }}
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const text = await file.text();
+                  try {
+                    const data = JSON.parse(text);
+                    await fetch("/api/library", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "x-admin-id": CURRENT_USER_ID || ""
+                      },
+                      body: JSON.stringify(data)
+                    });
+                    alert("✅ Библиотека успешно восстановлена");
+                    fetch("/api/library").then(r => r.json()).then(setBrands);
+                  } catch {
+                    alert("⚠️ Ошибка при загрузке файла");
+                  }
+                }}
+              />
+
+              <button className="btn" onClick={() => document.getElementById("uploadMixes").click()}>⬆️ Загрузить миксы</button>
+              <input
+                type="file"
+                id="uploadMixes"
+                accept=".json"
+                style={{ display: "none" }}
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const text = await file.text();
+                  try {
+                    const data = JSON.parse(text);
+                    for (const mix of data) {
+                      await fetch("/api/mixes", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(mix)
+                      });
+                    }
+                    alert("✅ Миксы успешно восстановлены");
+                    fetch("/api/mixes").then(r => r.json()).then(setMixes);
+                  } catch {
+                    alert("⚠️ Ошибка при загрузке файла");
+                  }
+                }}
+              />
             </div>
           </div>
         </div>
       )}
-
-      {tab === "tips" && (
-        <div className="card glow">
-          <div className="hd"><h3>Советы</h3></div>
-          <div className="bd grid">
-            {tips.map((t, i) => (
-              <div key={i} className="mix-card card-soft">
-                <div className="mix-title">{t.title}</div>
-                <p>{t.content}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ADMIN — оставил как было, но без лишнего кода */}
-      {IS_ADMIN && tab === "admin" && /* ваш админ-код без изменений */ <div>Админка</div>}
-
-      <div className="footer muted">
-        Разработано с 🔥 <a href="https://t.me/Tutenhaman" style={{ color: "#f0b85a" }}>@Tutenhaman</a>
+      <div className="footer muted" style={{ textAlign: 'center', padding: '10px 0', fontSize: '12px', color: '#cfc7b3' }}>
+        Разработано с 🔥 для вашего TG-канала. Нужен свой мини-app? Пиши <a href="https://t.me/Tutenhaman" style={{ color: '#f0b85a', textDecoration: 'none' }}>@Tutenhaman</a>
       </div>
     </div>
   );
 }
 
-// ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-// САМАЯ ВАЖНАЯ СТРОКА — React 18!
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+ReactDOM.render(<App />, document.getElementById("root"));
