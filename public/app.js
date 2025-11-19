@@ -1,4 +1,4 @@
-const { useState, useEffect } = React;
+const { useState, useEffect, memo } = React;
 
 let tg = window.Telegram?.WebApp || null;
 let CURRENT_USER_ID = 0, CURRENT_USERNAME = "", CURRENT_USER_NAME = "Гость";
@@ -38,6 +38,41 @@ function debounce(func, delay) {
   };
 }
 
+// Memoized Mix Card to reduce re-renders
+const MixCard = memo(({ m, likes, toggleLike, shareMix, deleteMix, addComment, isRecommendation }) => {
+  const [commentText, setCommentText] = useState('');
+  return (
+    <div key={m.id} className="mix-card card-soft">
+      <div className="row between">
+        <div>
+          <div className="mix-title">{m.name}</div>
+          <div className="tiny muted">от {m.author}</div>
+        </div>
+        <div className="row">
+          <button className={"btn small like " + (likes[m.id] ? 'accent' : '')} onClick={() => toggleLike(m.id)}>❤ {m.likes}</button>
+          <button className="btn small" onClick={() => shareMix(m)}>📤</button>
+          {IS_ADMIN && <button className="btn small danger" onClick={() => deleteMix(m.id)}>✕</button>}
+        </div>
+      </div>
+      <div className="tiny">Крепость: <b>{m.avgStrength}</b></div>
+      <div className="row tag-row">
+        <span className="badge tag" style={{ background: tasteColor(m.finalTaste), color: "#000", border: "none" }}>{m.finalTaste}</span>
+      </div>
+      <div className="tiny muted">Состав: {m.flavors.map(p => `${p.name} ${p.percent}%`).join(' + ')}</div>
+      <div className="comments">
+        {(m.comments || []).slice(0, 5).map(c => <div key={c.id} className="tiny muted">{c.author}: {c.text}</div>)}
+        {m.comments?.length > 5 && <div className="tiny muted">...и ещё {m.comments.length - 5}</div>}
+        <input className="input small" placeholder="Добавить комментарий" value={commentText} onChange={e => setCommentText(e.target.value)} onKeyDown={(e) => {
+          if (e.key === 'Enter' && commentText.trim()) {
+            addComment(m.id, commentText);
+            setCommentText('');
+          }
+        }} />
+      </div>
+    </div>
+  );
+});
+
 function App() {
   const [tab, setTab] = useState("community");
   const [brands, setBrands] = useState([]);
@@ -45,10 +80,10 @@ function App() {
   const [likes, setLikes] = useState({});
   const [banned, setBanned] = useState([]);
   const [collapsed, setCollapsed] = useState({});
-  const [userPrefs, setUserPrefs] = useState({}); // Фича 1: предпочтения (taste, strength)
-  const [userFlavors, setUserFlavors] = useState([]); // Фича 2: свои вкусы
-  const [recommendations, setRecommendations] = useState([]); // Фича 1
-  const [stats, setStats] = useState({ topMixes: [], topTastes: [] }); // Фича 6
+  const [userPrefs, setUserPrefs] = useState({}); 
+  const [userFlavors, setUserFlavors] = useState([]); 
+  const [recommendations, setRecommendations] = useState([]); 
+  const [stats, setStats] = useState({ topMixes: [], topTastes: [] }); 
 
   useEffect(() => {
     fetch("/api/library").then(r => r.json()).then(data => {
@@ -62,11 +97,12 @@ function App() {
     try { setBanned(JSON.parse(localStorage.getItem("bannedWords") || "[]")); } catch {}
     try { setUserPrefs(JSON.parse(localStorage.getItem("userPrefs") || "{}")); } catch {}
     try { setUserFlavors(JSON.parse(localStorage.getItem("userFlavors") || "[]")); } catch {}
+  }, []);
 
-    // Загрузка рекомендаций и статов
-    fetch("/api/recommend?prefs=" + encodeURIComponent(JSON.stringify(userPrefs))).then(r => r.json()).then(setRecommendations);
-    fetch("/api/stats").then(r => r.json()).then(setStats);
-  }, [userPrefs]);
+  useEffect(() => {
+    fetch("/api/recommend?prefs=" + encodeURIComponent(JSON.stringify(userPrefs))).then(r => r.json()).then(setRecommendations).catch(console.error);
+    fetch("/api/stats").then(r => r.json()).then(setStats).catch(console.error);
+  }, [userPrefs, mixes]);
 
   const reloadMixes = () => fetch("/api/mixes").then(r => r.json()).then(setMixes);
 
@@ -82,7 +118,6 @@ function App() {
     if (j.success) {
       setMixes(ms => ms.map(m => m.id === id ? { ...m, likes: j.mix.likes } : m));
       setLikes(s => { const n = { ...s }; if (already) delete n[id]; else n[id] = 1; return n; });
-      // Обновляем prefs по лайку
       const mix = mixes.find(m => m.id === id);
       if (mix && !already) {
         const newPrefs = { taste: mix.finalTaste, strength: mix.avgStrength };
@@ -129,12 +164,16 @@ function App() {
   const avg = parts.length && total > 0 ? Math.round(parts.reduce((a, p) => a + p.percent * p.strength, 0) / total) : 0;
   const remaining = Math.max(0, 100 - total);
 
-  let tasteTotals = {};
-  for (const p of parts) {
-    if (!p.taste) continue;
-    const t = p.taste.trim().toLowerCase();
-    tasteTotals[t] = (tasteTotals[t] || 0) + p.percent;
-  }
+  const tasteTotals = useMemo(() => {
+    let totals = {};
+    for (const p of parts) {
+      if (!p.taste) continue;
+      const t = p.taste.trim().toLowerCase();
+      totals[t] = (totals[t] || 0) + p.percent;
+    }
+    return totals;
+  }, [parts]);
+
   let finalTaste = "—";
   if (Object.keys(tasteTotals).length) {
     const [mainTaste] = Object.entries(tasteTotals).sort((a, b) => b[1] - a[1])[0];
@@ -265,13 +304,13 @@ function App() {
   };
 
   // === COMMUNITY (Миксы) ===
-  const tasteCategories = Array.from(new Set(mixes.map(m => (m.finalTaste || "").toLowerCase()).filter(Boolean)));
+  const tasteCategories = useMemo(() => Array.from(new Set(mixes.map(m => (m.finalTaste || "").toLowerCase()).filter(Boolean))), [mixes]);
   const [pref, setPref] = useState("all");
   const [strengthFilter, setStrengthFilter] = useState(5);
-  const filtered = mixes
+  const filtered = useMemo(() => mixes
     .filter(m => pref === "all" || (m.finalTaste || "").toLowerCase().includes(pref))
     .filter(m => Math.abs((m.avgStrength || 0) - strengthFilter) <= 1)
-    .sort((a, b) => (b.likes || 0) - (a.likes || 0));
+    .sort((a, b) => (b.likes || 0) - (a.likes || 0)), [mixes, pref, strengthFilter]);
 
   // === TIPS (Фича 7) ===
   const tips = [
@@ -314,33 +353,7 @@ function App() {
             </div>
             <div className="bd grid">
               {recommendations.length ? recommendations.map(m => (
-                <div key={m.id} className="mix-card card-soft">
-                  <div className="row between">
-                    <div>
-                      <div className="mix-title">{m.name}</div>
-                      <div className="tiny muted">от {m.author}</div>
-                    </div>
-                    <div className="row">
-                      <button className={"btn small like " + (likes[m.id] ? 'accent' : '')} onClick={() => toggleLike(m.id)}>❤ {m.likes}</button>
-                      <button className="btn small" onClick={() => shareMix(m)}>📤</button>
-                      {IS_ADMIN && <button className="btn small danger" onClick={() => deleteMix(m.id)}>✕</button>}
-                    </div>
-                  </div>
-                  <div className="tiny">Крепость: <b>{m.avgStrength}</b></div>
-                  <div className="row tag-row">
-                    <span className="badge tag" style={{ background: tasteColor(m.finalTaste), color: "#000", border: "none" }}>{m.finalTaste}</span>
-                  </div>
-                  <div className="tiny muted">Состав: {m.flavors.map(p => `${p.name} ${p.percent}%`).join(' + ')}</div>
-                  <div className="comments">
-                    {(m.comments || []).map(c => <div key={c.id} className="tiny muted">{c.author}: {c.text}</div>)}
-                    <input className="input small" placeholder="Добавить комментарий" onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        addComment(m.id, e.target.value);
-                        e.target.value = '';
-                      }
-                    }} />
-                  </div>
-                </div>
+                <MixCard key={m.id} m={m} likes={likes} toggleLike={toggleLike} shareMix={shareMix} deleteMix={deleteMix} addComment={addComment} isRecommendation={true} />
               )) : <p className="muted">Лайкайте миксы, чтобы получить рекомендации!</p>}
             </div>
           </div>
@@ -364,33 +377,7 @@ function App() {
               <div className="sep"></div>
               <div className="grid">
                 {filtered.map(m => (
-                  <div key={m.id} className="mix-card card-soft">
-                    <div className="row between">
-                      <div>
-                        <div className="mix-title">{m.name}</div>
-                        <div className="tiny muted">от {m.author}</div>
-                      </div>
-                      <div className="row">
-                        <button className={"btn small like " + (likes[m.id] ? 'accent' : '')} onClick={() => toggleLike(m.id)}>❤ {m.likes}</button>
-                        <button className="btn small" onClick={() => shareMix(m)}>📤</button>
-                        {IS_ADMIN && <button className="btn small danger" onClick={() => deleteMix(m.id)}>✕</button>}
-                      </div>
-                    </div>
-                    <div className="tiny">Крепость: <b>{m.avgStrength}</b></div>
-                    <div className="row tag-row">
-                      <span className="badge tag" style={{ background: tasteColor(m.finalTaste), color: "#000", border: "none" }}>{m.finalTaste}</span>
-                    </div>
-                    <div className="tiny muted">Состав: {m.flavors.map(p => `${p.name} ${p.percent}%`).join(' + ')}</div>
-                    <div className="comments">
-                      {(m.comments || []).map(c => <div key={c.id} className="tiny muted">{c.author}: {c.text}</div>)}
-                      <input className="input small" placeholder="Добавить комментарий" onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          addComment(m.id, e.target.value);
-                          e.target.value = '';
-                        }
-                      }} />
-                    </div>
-                  </div>
+                  <MixCard key={m.id} m={m} likes={likes} toggleLike={toggleLike} shareMix={shareMix} deleteMix={deleteMix} addComment={addComment} isRecommendation={false} />
                 ))}
               </div>
             </div>
